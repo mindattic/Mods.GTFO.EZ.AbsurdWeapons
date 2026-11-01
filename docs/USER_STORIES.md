@@ -254,3 +254,4 @@ _Nothing recorded yet._
 | G.AWPN-T227 | 2026-10-26 | fix | closed | Absurd Weapons' own on/off toggle message now also posts to the event log, matching the Insert/Delete infinite health and ammo toggles instead of only the crosshair line and console | GearCycler.cs |
 | G.AWPN-T228 | 2026-10-26 | chore | closed | Cut the v18 release: fold in the BladeStretcher leak fix and the event-log toggle announcement, bump VERSION/manifest, rebuild and repackage dist/ | package/CHANGELOG.md |
 | G.AWPN-T229 | 2026-11-01 | chore | closed | Rename repo to Mods.GTFO.EZ.AbsurdWeapons for mod organization (GitHub + folder + refs) | 910f2100b9aece650600a58fa61a21376d91422e |
+| G.AWPN-T230 | 2026-11-01 | chore | closed | Cut v19 release: bump VERSION/manifest, rebuild and repackage dist/ | 1de992a on main; dotnet build 0 warnings/0 errors; dist/GTFO.EZ.AbsurdWeapons-19.0.0.zip built |
