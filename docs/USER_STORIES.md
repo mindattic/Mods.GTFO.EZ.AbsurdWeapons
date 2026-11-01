@@ -253,4 +253,4 @@ _Nothing recorded yet._
 | G.AWPN-T226 | 2026-10-26 | fix | closed | Bughunt: prune destroyed blade transforms from BladeStretcher's cache so it stops growing unbounded for the life of the game process | BladeStretcher.cs |
 | G.AWPN-T227 | 2026-10-26 | fix | closed | Absurd Weapons' own on/off toggle message now also posts to the event log, matching the Insert/Delete infinite health and ammo toggles instead of only the crosshair line and console | GearCycler.cs |
 | G.AWPN-T228 | 2026-10-26 | chore | closed | Cut the v18 release: fold in the BladeStretcher leak fix and the event-log toggle announcement, bump VERSION/manifest, rebuild and repackage dist/ | package/CHANGELOG.md |
-| G.AWPN-T229 | 2026-11-01 | chore | open | Rename repo to Mods.GTFO.EZ.AbsurdWeapons for mod organization (GitHub + folder + refs) | — |
+| G.AWPN-T229 | 2026-11-01 | chore | closed | Rename repo to Mods.GTFO.EZ.AbsurdWeapons for mod organization (GitHub + folder + refs) | 910f2100b9aece650600a58fa61a21376d91422e |
