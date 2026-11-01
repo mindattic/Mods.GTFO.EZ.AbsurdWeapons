@@ -1,6 +1,6 @@
 ---
 codex: 1
-project: GTFO.EZ.AbsurdWeapons
+project: Mods.GTFO.EZ.AbsurdWeapons
 code: G.AWPN
 layer: stories
 status: living
@@ -8,7 +8,7 @@ updated: 2026-10-15
 ---
 <!-- GENERATED from MindAttic.Tickets/data/Tickets.db by `tickets db render`. Do not edit: this file is rewritten from the database; change stories and tickets with the tickets CLI. -->
 
-# GTFO.EZ.AbsurdWeapons — User Stories
+# Mods.GTFO.EZ.AbsurdWeapons — User Stories
 > ✅ done (shipped & tested) · 🟡 partial · ⬜ planned. Every ✅ cites the test.
 
 ## Priority backlog
@@ -253,3 +253,4 @@ _Nothing recorded yet._
 | G.AWPN-T226 | 2026-10-26 | fix | closed | Bughunt: prune destroyed blade transforms from BladeStretcher's cache so it stops growing unbounded for the life of the game process | BladeStretcher.cs |
 | G.AWPN-T227 | 2026-10-26 | fix | closed | Absurd Weapons' own on/off toggle message now also posts to the event log, matching the Insert/Delete infinite health and ammo toggles instead of only the crosshair line and console | GearCycler.cs |
 | G.AWPN-T228 | 2026-10-26 | chore | closed | Cut the v18 release: fold in the BladeStretcher leak fix and the event-log toggle announcement, bump VERSION/manifest, rebuild and repackage dist/ | package/CHANGELOG.md |
+| G.AWPN-T229 | 2026-11-01 | chore | open | Rename repo to Mods.GTFO.EZ.AbsurdWeapons for mod organization (GitHub + folder + refs) | — |
