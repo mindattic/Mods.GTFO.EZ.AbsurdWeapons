@@ -1,6 +1,6 @@
 {
   "name": "GtfoEZAbsurdWeapons",
-  "version_number": "18.0.0",
+  "version_number": "19.0.0",
   "website_url": "https://github.com/mindattic/GTFO.EZ.AbsurdWeapons",
   "description": "GTFO.EZ companion: eighteen new weapons marked (!): katana, Mjolnir, sledgehammer, stealth dagger; plasma, smart, laser, tentacle, grenade, rail, lightning, rocket and shrink-ray guns; a healing banner. Press a slot's key again to swap it mid-level.",
   "dependencies": [

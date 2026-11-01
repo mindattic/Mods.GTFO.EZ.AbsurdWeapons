@@ -1,5 +1,11 @@
 # Changelog
 
+## v19
+
+- Moves in step with the GTFO.EZ family's version number (GTFO.EZ, GTFO.EZ.AbsurdWeapons,
+  GTFO.EZ.AbsurdMoves, GTFO.EZ.AbsurdItems, GTFO.CrashTestDummies and GTFO.SkipDrop share one). No
+  change in this mod's own behavior.
+
 ## v18
 
 - **Bug fix:** `BladeStretcher`'s cache of each blade's unstretched transform was keyed by instance
