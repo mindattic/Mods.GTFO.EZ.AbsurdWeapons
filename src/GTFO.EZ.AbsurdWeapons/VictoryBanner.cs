@@ -590,7 +590,22 @@ internal sealed class BannerPylon : MonoBehaviour
         part.transform.localPosition = position;
         part.transform.localScale = scale;
         var renderer = part.GetComponent<Renderer>();
-        if (renderer != null) renderer.material = new Material(Shader.Find("Unlit/Color")) { color = color };
+        if (renderer != null) renderer.sharedMaterial = PartMaterial(color);
+    }
+
+    // One shared material per part color. A new one per part was never freed with the banner (Unity
+    // doesn't destroy a renderer's material with its object), so every plant - on every client -
+    // leaked one per part.
+    private static readonly Dictionary<(float, float, float, float), Material> partMaterials = new();
+
+    [HideFromIl2Cpp]
+    private static Material PartMaterial(Color color)
+    {
+        var key = (color.r, color.g, color.b, color.a);
+        if (partMaterials.TryGetValue(key, out var material) && material != null) return material; // Unity's null: rebuilt if unloaded
+        material = new Material(Shader.Find("Unlit/Color")) { color = color };
+        partMaterials[key] = material;
+        return material;
     }
 
     private static Material? ringMaterial;

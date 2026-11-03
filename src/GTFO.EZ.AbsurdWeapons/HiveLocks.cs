@@ -64,7 +64,8 @@ internal sealed class HiveLocks : MonoBehaviour
             var hive = SeekerKind.Hive;
             var inCone = SeekerGuns.FindLocks(camera.Position, camera.Forward, hive.LockConeDegrees, hive.LockRange);
             var seen = new HashSet<IntPtr>();
-            for (var i = 0; i < inCone.Count && i < Math.Max(1, hive.MaxLocks); i++)
+            // Exactly the enemies NextLock cycles between: MaxLocks 0 (or less) locks none, so none is marked.
+            for (var i = 0; i < inCone.Count && i < hive.MaxLocks; i++)
             {
                 var enemy = inCone[i];
                 seen.Add(enemy.Pointer);

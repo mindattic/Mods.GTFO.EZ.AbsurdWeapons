@@ -76,6 +76,13 @@ internal static class ChainLightning
             point = hit.point;
             limb = hit.collider.GetComponent<Dam_EnemyDamageLimb>();
             current = limb?.m_base?.Owner;
+            // A corpse in the way isn't a target: fall through to the enemy nearest the aim instead
+            // of the whole stream fizzling on it as a miss.
+            if (current != null && !current.Alive)
+            {
+                current = null;
+                limb = null;
+            }
             if (current == null && LockDamage.TryHit(hit.collider, damage, owner.Cast<Agent>(), hit.point, aim, hit.normal))
             {
                 path.Add(point);
