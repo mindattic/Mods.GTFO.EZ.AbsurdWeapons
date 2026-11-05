@@ -1,5 +1,11 @@
 # Changelog
 
+## v20
+
+- Dependency bump: `BepInExPack_GTFO` 3.2.3 -> 3.2.4. Moves in step with the GTFO.EZ family's
+  version number (GTFO.EZ, GTFO.EZ.AbsurdWeapons, GTFO.EZ.AbsurdMoves, GTFO.EZ.AbsurdItems,
+  GTFO.CrashTestDummies and GTFO.SkipDrop share one). No change in this mod's own behavior.
+
 ## v19
 
 - Moves in step with the GTFO.EZ family's version number (GTFO.EZ, GTFO.EZ.AbsurdWeapons,
