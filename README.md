@@ -4,7 +4,7 @@ A GTFO mod that adds eighteen over-the-top weapons, from a dashing katana and a 
 
 ![Language](https://img.shields.io/badge/language-C%23%20(.NET%206)-blue)
 ![Platform](https://img.shields.io/badge/platform-BepInEx%20IL2CPP-informational)
-![Status](https://img.shields.io/badge/status-in%20development%20(v17)-yellow)
+![Status](https://img.shields.io/badge/status-in%20development%20(v20)-yellow)
 
 ![Absurd Weapons cover art: GTFO prisoners firing a tentacle gun, a laser cannon and curving smart rounds, and swinging a giant spiked hammer](logo.png)
 
@@ -87,7 +87,7 @@ build at it directly:
 dotnet build .\src\GTFO.EZ.AbsurdWeapons\GTFO.EZ.AbsurdWeapons.csproj -p:BepInEx="$env:AppData\r2modmanPlus-local\GTFO\profiles\Default\BepInEx"
 ```
 
-Launch the game. `BepInEx/LogOutput.log` should show `GTFO.EZ.AbsurdWeapons v18.0.0 loaded.`, one
+Launch the game. `BepInEx/LogOutput.log` should show `GTFO.EZ.AbsurdWeapons v20.0.0 loaded.`, one
 `GTFO.EZ.AbsurdWeapons added the <weapon> ...` line per weapon and, when a melee model is built, its
 blade length before and after. The new weapons appear in the loadout screen in their normal slots.
 
@@ -682,10 +682,11 @@ v1, v2, v3... - major-only bumps, matching the convention across other MindAttic
 Thunderstore requires `manifest.json`'s `version_number` to be strict `x.y.z`, so "v1" is `1.0.0`, "v2"
 is `2.0.0`, and so on (minor and patch stay 0). `package/CHANGELOG.md` headers use the short `vN` form.
 
-The GTFO.EZ family - GTFO.EZ, GTFO.EZ.AbsurdWeapons, GTFO.EZ.AbsurdMoves and GTFO.EZ.AbsurdItems -
-shares one version number, so a matching set is easy to spot: the companions' first release was
-**v13**, in step with GTFO.EZ (not v1), and every release of the family bumps all four together.
-Current: v18 (`18.0.0` in `package/manifest.json` and `Plugin.VERSION`).
+The GTFO.EZ family - GTFO.EZ, GTFO.EZ.AbsurdWeapons, GTFO.EZ.AbsurdMoves, GTFO.EZ.AbsurdItems,
+GTFO.CrashTestDummies and GTFO.SkipDrop - shares one version number, so a matching set is easy to
+spot: the companions' first release was **v13**, in step with GTFO.EZ (not v1); GTFO.CrashTestDummies
+and GTFO.SkipDrop joined the shared scheme at **v17**; every release since bumps all six together.
+Current: v20 (`20.0.0` in `package/manifest.json` and `Plugin.VERSION`).
 
 ## Sharing with friends
 

@@ -581,6 +581,10 @@ the host, who owns enemy positions.
 - **GTFO.EZ.AbsurdItems:** compatible - the Hand Grenade, Stim Pack and loot mix that used to be in
   this mod live there now. A GTFO.* mod switched off in its config (`[0. Mod] Enabled`) counts as
   not installed for the others.
+- **GTFO.EZ.AbsurdMoves:** optional - without it (or with it switched off), the held-trigger guns
+  (lasers, Chain Lightning Gun, Shrink Beam) hold off firing while you're sprinting, like vanilla
+  guns. With it installed and its `[Fire On The Move] Fire While Running Enabled` switched on, they
+  can fire while you sprint too.
 - **Other mods that add weapons** at the same ids (1002-1006 melee, 1101-1119 guns, 1202
   tool): if one already uses an id, that weapon isn't added and `LogOutput.log` says so. The
   rest still load. A melee weapon whose attack speed isn't 1 also adds a melee animation set at its

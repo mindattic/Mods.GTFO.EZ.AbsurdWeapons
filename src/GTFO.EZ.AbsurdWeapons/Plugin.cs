@@ -14,7 +14,7 @@ public class Plugin : BasePlugin
 {
     public const string GUID = "MindAttic.GTFO.EZ.AbsurdWeapons";
     public const string NAME = "GTFO.EZ.AbsurdWeapons";
-    public const string VERSION = "19.0.0";
+    public const string VERSION = "20.0.0";
 
     // Optional: only used to order our datablock injection after it.
     internal const string GtfoEzGuid = "MindAttic.GTFO.EZ";
