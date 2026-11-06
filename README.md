@@ -108,7 +108,7 @@ blade length before and after. The new weapons appear in the loadout screen in t
   Mjolnir throw, the Warhammer slam and the Shadow Dagger stealth.
 - **Rocket Launcher:** right-click detonates your oldest rocket in flight, one per click.
 - **Victory Banner:** fire to plant it; look at it within 2.5 m and press Use to pick it up.
-- **Insert** toggles infinite health and **Delete** infinite ammo (your own player only).
+- **Insert** toggles infinite health and **Delete** infinite ammo (for the whole team, whoever presses it).
 
 Everyone in a lobby needs the identical mod version, with the same weapons switched on: weapons sync
 by id.
