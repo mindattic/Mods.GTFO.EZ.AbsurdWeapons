@@ -53,7 +53,7 @@ internal sealed class WeaponSettings
         BuiltInChargedAttackSpeed = chargedAttackSpeed;
         Weapon = weapon;
         Enabled = file.Bind(weapon, $"{weapon} Enabled", true,
-            $"Adds the {weapon} to the loadout screen. Turn off to remove it without touching any of its other settings below. Takes effect on restart.");
+            $"Adds the {weapon} to the loadout screen. Turn off to remove it without touching any of its other settings below. It stays registered either way, so lobbies agree on which weapons exist.");
         BladeLength = file.Bind(weapon, "BladeLength", bladeLength,
             new ConfigDescription("Stretches the blade along its length: 1 is the model's own size, 2 twice as long. Visual only - raise Reach to match.",
                 new AcceptableValueRange<float>(0.25f, 20f)));

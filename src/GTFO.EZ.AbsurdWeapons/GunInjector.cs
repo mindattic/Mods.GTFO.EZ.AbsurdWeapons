@@ -88,35 +88,35 @@ internal static class GunInjector
         PlasmaDamage = config.Bind("Plasma Guns", "Damage", 22.5f, "Average damage per ball (it's actually rolled, 5 x 1d8).");
         PlasmaShotDelay = config.Bind("Plasma Guns", "ShotDelay", 3f / 35f, "Seconds between balls (Doom: one every 3 tics, ~11.7 a second).");
         PlasmaClipSize = config.Bind("Plasma Guns", "ClipSize", 100, "Magazine size.");
-        PlasmaPistolEnabled = config.Bind("Plasma Guns", "Plasma Pistol Enabled", true, "Adds the Plasma Pistol (main slot) to the loadout screen. Takes effect on restart.");
-        PlasmaRifleEnabled = config.Bind("Plasma Guns", "Plasma Rifle Enabled", true, "Adds the Plasma Rifle (special slot) to the loadout screen. Takes effect on restart.");
+        PlasmaPistolEnabled = config.Bind("Plasma Guns", "Plasma Pistol Enabled", true, "Adds the Plasma Pistol (main slot) to the loadout screen (it stays registered either way, so lobbies agree on which weapons exist).");
+        PlasmaRifleEnabled = config.Bind("Plasma Guns", "Plasma Rifle Enabled", true, "Adds the Plasma Rifle (special slot) to the loadout screen (it stays registered either way, so lobbies agree on which weapons exist).");
         HiveDamage = config.Bind("Hive Guns", "Damage", 1f, "Damage per round.");
         HiveShotDelay = config.Bind("Hive Guns", "ShotDelay", 0.09f, "Seconds between rounds.");
         HiveClipSize = config.Bind("Hive Guns", "ClipSize", 30, "Magazine size.");
-        HivePistolEnabled = config.Bind("Hive Guns", "Hive Pistol Enabled", true, "Adds the Hive Pistol (main slot) to the loadout screen. Takes effect on restart.");
-        HiveRifleEnabled = config.Bind("Hive Guns", "Hive Rifle Enabled", true, "Adds the Hive Rifle (special slot) to the loadout screen. Takes effect on restart.");
+        HivePistolEnabled = config.Bind("Hive Guns", "Hive Pistol Enabled", true, "Adds the Hive Pistol (main slot) to the loadout screen (it stays registered either way, so lobbies agree on which weapons exist).");
+        HiveRifleEnabled = config.Bind("Hive Guns", "Hive Rifle Enabled", true, "Adds the Hive Rifle (special slot) to the loadout screen (it stays registered either way, so lobbies agree on which weapons exist).");
         LaserDamage = config.Bind("Laser Guns", "Damage", 2f, "Damage per tick (20 ticks a second).");
         LaserShotDelay = config.Bind("Laser Guns", "ShotDelay", 0.05f, "Seconds between ticks.");
         LaserClipSize = config.Bind("Laser Guns", "ClipSize", 100, "Magazine size.");
-        LaserPistolEnabled = config.Bind("Laser Guns", "Laser Pistol Enabled", true, "Adds the Laser Pistol (main slot) to the loadout screen. Takes effect on restart.");
-        LaserRifleEnabled = config.Bind("Laser Guns", "Laser Rifle Enabled", true, "Adds the Laser Rifle (special slot) to the loadout screen. Takes effect on restart.");
+        LaserPistolEnabled = config.Bind("Laser Guns", "Laser Pistol Enabled", true, "Adds the Laser Pistol (main slot) to the loadout screen (it stays registered either way, so lobbies agree on which weapons exist).");
+        LaserRifleEnabled = config.Bind("Laser Guns", "Laser Rifle Enabled", true, "Adds the Laser Rifle (special slot) to the loadout screen (it stays registered either way, so lobbies agree on which weapons exist).");
         RailgunDamage = config.Bind("Railgun", "Damage", 9999f, "Damage to every enemy on the line (kills anything outright).");
         RailgunShotDelay = config.Bind("Railgun", "ShotDelay", 1.5f, "Seconds between shots (Quake's 1.5 s).");
         RailgunClipSize = config.Bind("Railgun", "ClipSize", 5, "Magazine size.");
-        RailgunEnabled = config.Bind("Railgun", "Railgun Enabled", true, "Adds the Railgun to the loadout screen. Takes effect on restart.");
+        RailgunEnabled = config.Bind("Railgun", "Railgun Enabled", true, "Adds the Railgun to the loadout screen (it stays registered either way, so lobbies agree on which weapons exist).");
         ChainLightningDamage = config.Bind("Chain Lightning Gun", "Damage", 5f, "Damage to the first enemy per ShotDelay of held trigger (the stream strikes every 0.08 s, each strike this scaled to the tick; each jump then does JumpFalloff of the one before).");
         ChainLightningShotDelay = config.Bind("Chain Lightning Gun", "ShotDelay", 0.15f, "Seconds of held trigger that deal Damage once (it never fires shots: Damage / ShotDelay is its damage a second).");
         ChainLightningClipSize = config.Bind("Chain Lightning Gun", "ClipSize", 60, "Magazine size.");
-        ChainLightningGunEnabled = config.Bind("Chain Lightning Gun", "Chain Lightning Gun Enabled", true, "Adds the Chain Lightning Gun to the loadout screen. Takes effect on restart.");
+        ChainLightningGunEnabled = config.Bind("Chain Lightning Gun", "Chain Lightning Gun Enabled", true, "Adds the Chain Lightning Gun to the loadout screen (it stays registered either way, so lobbies agree on which weapons exist).");
         TentacleDamage = config.Bind("Tentacle Guns", "Damage", 25f, "Damage per Tentacle Cannon bite (the gun's only - enemies' tentacles are untouched).");
         TentacleShotDelay = config.Bind("Tentacle Guns", "ShotDelay", 0.235f, "Seconds between tentacles.");
         TentacleClipSize = config.Bind("Tentacle Guns", "ClipSize", 60, "Magazine size.");
-        TentacleCannonEnabled = config.Bind("Tentacle Guns", "Tentacle Cannon Enabled", true, "Adds the Tentacle Cannon to the loadout screen. Takes effect on restart.");
-        GrenadePistolEnabled = config.Bind("Grenade Launcher", "Grenade Pistol Enabled", true, "Adds the Grenade Pistol (main slot) to the loadout screen. Takes effect on restart.");
-        GrenadeRifleEnabled = config.Bind("Grenade Launcher", "Grenade Rifle Enabled", true, "Adds the Grenade Rifle (special slot) to the loadout screen. Takes effect on restart.");
-        RocketLauncherEnabled = config.Bind("Rocket Launcher", "Rocket Launcher Enabled", true, "Adds the Rocket Launcher to the loadout screen. Takes effect on restart.");
-        ShrinkBeamEnabled = config.Bind("Shrink Beam", "Shrink Beam Enabled", true, "Adds the Shrink Beam to the loadout screen. Takes effect on restart.");
-        VictoryBannerEnabled = config.Bind("Victory Banner", "Victory Banner Enabled", true, "Adds the Victory Banner to the loadout screen. Takes effect on restart.");
+        TentacleCannonEnabled = config.Bind("Tentacle Guns", "Tentacle Cannon Enabled", true, "Adds the Tentacle Cannon to the loadout screen (it stays registered either way, so lobbies agree on which weapons exist).");
+        GrenadePistolEnabled = config.Bind("Grenade Launcher", "Grenade Pistol Enabled", true, "Adds the Grenade Pistol (main slot) to the loadout screen (it stays registered either way, so lobbies agree on which weapons exist).");
+        GrenadeRifleEnabled = config.Bind("Grenade Launcher", "Grenade Rifle Enabled", true, "Adds the Grenade Rifle (special slot) to the loadout screen (it stays registered either way, so lobbies agree on which weapons exist).");
+        RocketLauncherEnabled = config.Bind("Rocket Launcher", "Rocket Launcher Enabled", true, "Adds the Rocket Launcher to the loadout screen (it stays registered either way, so lobbies agree on which weapons exist).");
+        ShrinkBeamEnabled = config.Bind("Shrink Beam", "Shrink Beam Enabled", true, "Adds the Shrink Beam to the loadout screen (it stays registered either way, so lobbies agree on which weapons exist).");
+        VictoryBannerEnabled = config.Bind("Victory Banner", "Victory Banner Enabled", true, "Adds the Victory Banner to the loadout screen (it stays registered either way, so lobbies agree on which weapons exist).");
     }
 
     // Every gun this mod adds.
@@ -221,11 +221,11 @@ internal static class GunInjector
     {
         try
         {
+            // Registered even when disabled (G.AWPN-T236): every machine in a lobby then holds the
+            // same blocks whatever its own config says; Enabled only keeps it out of the loadout.
+            InLoadout[id] = () => enabled.Value;
             if (!enabled.Value)
-            {
-                Plugin.Logger.LogInfo($"GTFO.EZ.AbsurdWeapons: {name} disabled in the config - not adding it.");
-                return;
-            }
+                Plugin.Logger.LogInfo($"GTFO.EZ.AbsurdWeapons: {name} disabled in the config - registered, but left out of the loadout.");
             // Already added by this mod (the game initialized its data again): nothing to do.
             if (AddedCategories.Contains(id) && GameDataBlockBase<GearCategoryDataBlock>.HasBlock(id)) return;
             if (GameDataBlockBase<ArchetypeDataBlock>.HasBlock(id)

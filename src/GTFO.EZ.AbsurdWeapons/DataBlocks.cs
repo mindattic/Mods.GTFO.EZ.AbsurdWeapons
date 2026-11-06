@@ -34,6 +34,11 @@ internal static class DataBlocks
     // ids or names. Filled as each one is registered; the in-level gear cycler only offers these.
     internal static readonly System.Collections.Generic.HashSet<uint> AddedCategories = new();
 
+    // G.AWPN-T236 / G.EZ-T125: whether each weapon's own "... Enabled" setting offers it in the
+    // loadout. Every weapon's blocks are registered whatever the setting, so the host and every
+    // client hold the same datablocks; a disabled one is only left out of the loadout lists (LoadoutFilter).
+    internal static readonly System.Collections.Generic.Dictionary<uint, Func<bool>> InLoadout = new();
+
     // Gear-JSON helpers (see GearJson, which is unit tested).
     internal static uint? CategoryIdOf(PlayerOfflineGearDataBlock gear) => GearJson.CategoryId(gear.GearJSON);
     internal static eWeaponFireMode FireModeOf(PlayerOfflineGearDataBlock gear) => (eWeaponFireMode)GearJson.FireModeId(gear.GearJSON);

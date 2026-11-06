@@ -275,8 +275,9 @@ the mod:
 ### Turning weapons off
 
 Every weapon has its own on/off switch, `<Weapon> Enabled` †, in its section. All are on by default.
-A weapon that's off simply isn't added: it's not in the loadout screen or the weapon cycle,
-and nothing else about the game changes. Pistol and rifle versions of a gun are switched separately.
+A weapon that's off isn't offered: it's not in the loadout screen or the weapon cycle, and
+nothing else about the game changes. It's still registered behind the scenes, so a teammate who has
+it on can bring it into your lobby and everyone's game knows what it is. Pistol and rifle versions of a gun are switched separately.
 
 | Section | Switches |
 |---|---|

@@ -125,7 +125,7 @@ GameDataInit.Initialize (game boot)
         v
   MeleeInjector / GunInjector postfixes  [HarmonyAfter("MindAttic.GTFO.EZ")]
         |
-        +--> per weapon: skip if its config Enabled is off, or its id is already taken
+        +--> per weapon: skip if its id is already taken (registered whatever Enabled says)
         +--> clone archetype + gear category + offline gear at the weapon's fixed id
         +--> rewrite the gear JSON (category, name + "(!)", fire mode, hold)
         v
@@ -594,9 +594,12 @@ Conventions:
   `0. Mod` is the file's first entry). Off, `Load` logs one line and returns before any other `Bind`,
   `ConfigMigrations.Apply`, `ClassInjector` registration, `Init`, `PatchAll` or `AddComponent`. The
   unbound settings stay in the file, and migrations still due run the next time the mod is on.
-- **`<Weapon> Enabled`** (default `true`), in each weapon's own section, is checked first thing in
-  `MeleeInjector.TryAdd` and `GunInjector.TryAdd`: off, the weapon's datablocks are never registered, so
-  it's absent from the loadout and the weapon cycle.
+- **`<Weapon> Enabled`** (default `true`), in each weapon's own section, no longer decides whether the
+  weapon's datablocks are registered (G.AWPN-T236, for GTFO.EZ-T125's host/client config sync): every
+  weapon is registered on every machine, so a lobby always agrees on which category ids exist.
+  `MeleeInjector.TryAdd`/`GunInjector.TryAdd` record the switch in `DataBlocks.InLoadout`, and
+  `LoadoutFilter` (a `GearManager.GetAllGearForSlot` postfix) leaves a disabled weapon out of the
+  loadout lists and the weapon cycle. It's read live, so it no longer needs a restart.
 - **Restart vs live:** anything that goes into a datablock - every `Enabled`, gun damage, shot delay
   and clip size, the melee archetype overrides, the seeker and impact-burst kinds built in their
   `Bind` - is read once at `GameDataInit.Initialize`. Everything else reads `.Value` at use, and

@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- **Bug fix (G.AWPN-T236, for GTFO.EZ's G.EZ-T125 config sync):** a weapon switched off with its
+  `<Weapon> Enabled` setting used to skip registering its datablocks altogether, so two players with
+  different switches had different gear categories - a teammate's Absurd weapon could be an id your
+  game had never heard of. Every weapon is now always registered; `Enabled` only takes it out of the
+  loadout screen and the weapon cycle.
+
 ## v20
 
 - Dependency bump: `BepInExPack_GTFO` 3.2.3 -> 3.2.4. Moves in step with the GTFO.EZ family's

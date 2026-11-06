@@ -50,11 +50,11 @@ internal static class MeleeInjector
     {
         try
         {
+            // Registered even when disabled (G.AWPN-T236): every machine in a lobby then holds the
+            // same blocks whatever its own config says; Enabled only keeps it out of the loadout.
+            InLoadout[id] = () => settings.Enabled.Value;
             if (!settings.Enabled.Value)
-            {
-                Plugin.Logger.LogInfo($"GTFO.EZ.AbsurdWeapons: {name} disabled in the config - not adding it.");
-                return;
-            }
+                Plugin.Logger.LogInfo($"GTFO.EZ.AbsurdWeapons: {name} disabled in the config - registered, but left out of the loadout.");
             // Already added by this mod (the game initialized its data again): nothing to do.
             if (AddedCategories.Contains(id) && GameDataBlockBase<GearCategoryDataBlock>.HasBlock(id)) return;
             if (GameDataBlockBase<MeleeArchetypeDataBlock>.HasBlock(id)
