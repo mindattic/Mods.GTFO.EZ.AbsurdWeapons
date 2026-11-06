@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 21.0.0
 
 - **Bug fix (G.AWPN-T236, for GTFO.EZ's G.EZ-T125 config sync):** a weapon switched off with its
   `<Weapon> Enabled` setting used to skip registering its datablocks altogether, so two players with
