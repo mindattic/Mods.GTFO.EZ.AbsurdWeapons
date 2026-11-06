@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using BepInEx.Configuration;
 using GameData;
 using Gear;
+using Il2CppInterop.Runtime.Attributes;
 using MindAttic.GTFO.Shared;
 using Player;
 using UnityEngine;
@@ -72,6 +73,56 @@ internal sealed class GearCycler : MonoBehaviour
             "Switches Absurd Weapons on (and snapshots your current gear and health) or, pressed again, off - putting every swapped slot and your health back to that snapshot. Off at the start of every level.");
     }
 
+    // A teammate switching Absurd Weapons on or off shows in everyone's event log: their loadout
+    // changes in front of the team, and switching off puts their health back to the snapshot.
+    private const string ToggleEvent = "MindAttic.GTFO.EZ.AbsurdWeapons.AbsurdToggle.v2";
+
+    [HideFromIl2Cpp]
+    internal static void Init() =>
+        Wire.Register<ToggleMessage>(ToggleEvent, (sender, message) =>
+        {
+            var name = PlayerName(Wire.Actor(message.Player, sender));
+            var text = message.On != 0 ? $"{name}: Absurd Weapons ON" : $"{name}: Absurd Weapons OFF - starting loadout and health restored";
+            MessageHelper.Show(text, MessageType.EventLog);
+            Plugin.Logger.LogInfo($"GTFO.EZ.AbsurdWeapons: {text}");
+        });
+
+    [HideFromIl2Cpp]
+    private static void BroadcastToggle(PlayerAgent player, bool on)
+    {
+        try
+        {
+            GTFO.API.NetworkAPI.InvokeEvent(ToggleEvent, new ToggleMessage(Wire.LookupOf(player), on));
+        }
+        catch (Exception e)
+        {
+            Plugin.Logger.LogWarning($"GTFO.EZ.AbsurdWeapons couldn't tell the team about the toggle: {e.Message}");
+        }
+    }
+
+    [HideFromIl2Cpp]
+    private static string PlayerName(ulong lookup)
+    {
+        try
+        {
+            if (SNetwork.SNet.TryGetPlayer(lookup, out var player) && player != null && !string.IsNullOrWhiteSpace(player.NickName))
+                return player.NickName;
+        }
+        catch (Exception)
+        {
+            // An unknown name is just "A teammate".
+        }
+        return "A teammate";
+    }
+
+    // Plain fields so GTFO-API can copy it as raw bytes.
+    private readonly struct ToggleMessage
+    {
+        public readonly ulong Player; // whose Absurd Weapons it is
+        public readonly byte On;
+        public ToggleMessage(ulong player, bool on) => (Player, On) = (player, (byte)(on ? 1 : 0));
+    }
+
     private void Update()
     {
         try
@@ -123,6 +174,7 @@ internal sealed class GearCycler : MonoBehaviour
             }
             startingHealth = player.Damage?.Health;
             Announce("Absurd Weapons: ON");
+            BroadcastToggle(player, true);
             return;
         }
 
@@ -131,6 +183,7 @@ internal sealed class GearCycler : MonoBehaviour
         starting.Clear();
         startingHealth = null;
         Announce("Absurd Weapons: OFF - starting loadout restored");
+        BroadcastToggle(player, false);
     }
 
     // Puts every snapshotted slot back to the gear (and that gear's own ammo) it held when Absurd

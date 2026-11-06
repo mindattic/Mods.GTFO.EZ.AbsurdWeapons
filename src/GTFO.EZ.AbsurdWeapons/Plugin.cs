@@ -73,6 +73,9 @@ public class Plugin : BasePlugin
         ClassInjector.RegisterTypeInIl2Cpp<ThrownHammer>();
         ClassInjector.RegisterTypeInIl2Cpp<BannerPylon>();
         ClassInjector.RegisterTypeInIl2Cpp<TentacleAmmoDriver>();
+        ClassInjector.RegisterTypeInIl2Cpp<NetPresence>();
+        NetPresence.Init();
+        GearCycler.Init();
         SeekerGuns.Init();
         ImpactBursts.Init();
         Stealth.Init();
@@ -99,6 +102,7 @@ public class Plugin : BasePlugin
         AddComponent<ShrinkBeamDriver>();
         AddComponent<ShrinkRegrowth>();
         AddComponent<TentacleAmmoDriver>();
+        AddComponent<NetPresence>();
         MjolnirThrow.Init();
         Logger.LogInfo($"{NAME} v{VERSION} loaded.");
     }

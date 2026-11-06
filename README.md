@@ -99,7 +99,8 @@ blade length before and after. The new weapons appear in the loadout screen in t
   snapshots your current loadout and health - and swapping mid-level (below) starts working. Press
   **End** again to turn it off: every slot you swapped goes back to that snapshot's gear and ammo
   (dropping you out of whatever Absurd weapon you're holding), and your health is set back to it too -
-  so the run can go on as if you'd never touched them.
+  so the run can go on as if you'd never touched them. Teammates see who switched it on or off in
+  their event log.
 - **Swap mid-level** (once Absurd Weapons is on): with a slot already in hand, press that slot's own
   select key again (1 to 4 by default - melee, main, special, tool - following rebinds) to move to its
   next weapon. The first swap of a slot adds the gear you dropped in with to the front of its cycle. A
@@ -356,8 +357,9 @@ light.
   `DEPLOYER_BEEP_TARGET_ACQUIRED` while the blink is still slow; bounces play `FRAGGRENADEBOUNCE`.
 - **Blast:** at 2.5 s (or on an enemy, teammate or bot) `AreaDamage.Apply` (5.2 m, 75 falling to 33%,
   x5 stagger) on the shooter's game, the trip mine's explosion effect (`FX_Tripmine` pool), a
-  `BurstFlash` and `FRAGGRENADEEXPLODE`. Teammates get launch and detonate messages; their copies only
-  bounce and explode when told (or 0.75 s after the fuse).
+  `BurstFlash` and `FRAGGRENADEEXPLODE`. Teammates get launch (`...GrenadeLaunch.v2`, carrying the
+  shooter's `Gravity`, `GrenadeBounciness` and `FuseSeconds`) and detonate messages; their copies fly
+  with the shooter's numbers, only bounce, and explode when told (or 0.75 s after the fuse).
 
 ### Rocket Launcher
 
@@ -376,12 +378,16 @@ light.
 - **Blast:** the Grenade Launcher's blast code (`AreaDamage`, `Explosion`) - `BlastDamage` 110 at the
   center, falling to `BlastEdgeFraction` (a third) at `BlastRadius` 5.2 m, `BlastStagger` x5 - plus the
   game's own `DamageUtil.DoExplosionDamage`, so the blast also catches nearby players, the shooter
-  included.
+  included. It runs on the shooter's game only, and that reaches every player: a player's
+  `ExplosionDamage` is `Dam_SyncedDamageBase`'s (the player damage classes don't override it), which
+  sends the explosion-damage packet the player's own game applies (`ReceiveExplosionDamage`), like
+  bullet friendly fire. Running it on every game would hurt each player once per game.
 - **Remote detonation:** it can't aim down sights. A `FirstPersonItemHolder.UpdateAimInput` prefix
   skips the aim input while it's held, and right-click (`InputAction.Aim`) instead detonates the
   shooter's oldest rocket in flight where it is, one per click.
-- **Multiplayer:** `MindAttic.GTFO.EZ.AbsurdWeapons.RocketLaunch` and `...RocketDetonate`. A teammate's
-  copy is visual only and flies on until the detonate message snaps it to the real impact point.
+- **Multiplayer:** `MindAttic.GTFO.EZ.AbsurdWeapons.RocketLaunch.v2` (with the shooter's `LaunchSpeed`
+  and `Lifetime`) and `...RocketDetonate`. A teammate's copy is visual only and flies at the shooter's
+  speed until the detonate message snaps it to the real impact point.
 
 ### Shrink Beam
 
@@ -398,8 +404,10 @@ light.
   beam for `RegrowDelaySeconds` (1 s), so a shrink has to be finished in one sustained hold.
 - **Look:** `ShrinkStream` draws three thin green strands corkscrewing around the beam's line.
 - **Multiplayer:** scale and speed aren't networked, so every client that gets the beam
-  (`MindAttic.GTFO.EZ.AbsurdWeapons.ShrinkBeam`) runs the same shrink math on its own copy of the enemy
-  under it.
+  (`MindAttic.GTFO.EZ.AbsurdWeapons.ShrinkBeam.v2`, naming the shooter and carrying the shooter's
+  shrink for that tick and the scale it stops at) runs the same shrink on its own copy of the enemy
+  under it. The slowdown that matters is the host's copy; a client warns once per level when the host
+  doesn't run the mod (`NetPresence`). Regrowth runs on each game's own settings.
 
 ### Katana dash
 
@@ -451,9 +459,10 @@ isn't stagger-immune. The flash is a fading `EffectLight` (`BurstFlash`), sent t
   limb nearest the wall, dealt on the host but credited to the player who knocked it back, with an
   `Impact_Concrete` puff.
 - **Host-owned:** enemy positions belong to the host. A client sends
-  `MindAttic.GTFO.EZ.AbsurdWeapons.Knockback` (the enemy's network id, direction, distance, slam damage;
-  its position only as a fallback) and the host slides it; the game's own position sync shows it to
-  everyone.
+  `MindAttic.GTFO.EZ.AbsurdWeapons.Knockback.v2` to the host (the attacking player, the enemy's network
+  id, direction, distance, slam damage; its position only as a fallback) and the host slides it; the
+  game's own position sync shows it to everyone. Without the mod on the host nothing moves, and the
+  client says so once per level (`NetPresence`).
 
 ### Warhammer slam
 
@@ -475,7 +484,8 @@ thrower at `ThrowReturnSpeed` 32 m/s. On the thrower's game it `SphereCastAll`s 
 0.6 m) each step for enemies (`ThrowHitDamage` 20, x4 stagger, once each way) and every
 `ThrowPulseSeconds` (0.12 s) calls `ChainLightning.Pulse`: the nearest visible enemy within
 `ThrowPulseRange` (3 m) takes `ThrowPulseDamage` (6), then `ThrowPulseJumps` (2) jumps. Teammates get
-`MindAttic.GTFO.EZ.AbsurdWeapons.MjolnirThrow` and fly a visual copy back to the sender.
+`MindAttic.GTFO.EZ.AbsurdWeapons.MjolnirThrow.v2` (naming the thrower, with their speeds, reach and
+spin) and fly a visual copy back to the thrower.
 
 ### Shadow Dagger stealth
 
@@ -494,8 +504,9 @@ thrower at `ThrowReturnSpeed` 32 m/s. On the thrower's game it `SphereCastAll`s 
   that stealth, up to `StealthMaxBonus` (+100%), and stretches the stealth by `StealthKillTimeBonus`
   (0.33 s), up to the cap.
 - **Ends early:** wielding anything but the dagger ends the stealth at once, here and on every game.
-- **Sync:** the hit is sent over GTFO-API (`MindAttic.GTFO.EZ.AbsurdWeapons.Stealth`); every game keeps
-  the same `hiddenUntil` table. That matters most on the host, where enemy AI runs.
+- **Sync:** the hit is sent over GTFO-API (`MindAttic.GTFO.EZ.AbsurdWeapons.Stealth.v2`, naming the
+  hidden player); every game keeps the same `hiddenUntil` table. That matters most on the host, where
+  enemy AI runs: a client warns once per level when the host doesn't run the mod (`NetPresence`).
 - **Enemies ignore hidden players:** `EnemyDetection.IsTargetValid` returns false for them, and
   prefixes on `EnemyAI.SetDetectedAgent` (sight and noise), `EnemyAI.SetTarget` and
   `EnemyAI.InjectPropagatedTarget` (alerts from other enemies) skip them.
@@ -515,7 +526,8 @@ teammates, and the owner picks it up like a sentry: look at it within `PickupRan
 Use. It retires when the owner's tool slot no longer holds it or the owner leaves the level (checked
 every half second on each client), and after `SafetyLifetimeSeconds` (600 s) as a safety net. While it's
 down, every client heals its own local player `HealPercent` (1%) of max health every `HealSeconds`
-(0.25 s) within `Radius` (8 m).
+(0.25 s) within `Radius` (8 m) - the planter's numbers, sent with `...BannerPlant.v2` (which names the
+planter, as `...BannerPickUp.v2` does), not each client's own.
 
 ### In-level weapon swapping
 
@@ -645,6 +657,8 @@ src/GTFO.EZ.AbsurdWeapons/       the plugin project (BepInEx/Il2Cpp - needs the 
   InfiniteAmmo.cs       ammo settings, stream-gun drain (infinite ammo is the shared Delete toggle)
   LockDamage.cs         lets this mod's weapons (which only look for enemy limbs) also melt door locks
   ProjectileHits.cs     what a hand-flown rocket or grenade can hit besides enemies (other players and bots)
+  NetSync.cs            versioned network events (Wire: .v2 first, then the old event for older games)
+                        and NetPresence (who runs the mod; the once-per-level host-lacks-mod warning)
   Sounds.cs             per-weapon sound choices, vanilla shot audio suppression, loop sounds
   ConfigMigrations.cs   one-time moves of a changed default onto configs still sitting on the old one
   Shared/               linked from external/GTFO.EZ.Shared (a git submodule; change it there): SharedOwner,

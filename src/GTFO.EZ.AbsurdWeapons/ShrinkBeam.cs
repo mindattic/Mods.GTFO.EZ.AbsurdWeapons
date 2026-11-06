@@ -8,6 +8,7 @@ using MindAttic.GTFO.Shared;
 using Il2CppInterop.Runtime.Attributes;
 using LevelGeneration;
 using Player;
+using SNetwork;
 using UnityEngine;
 
 namespace GTFO.EZ.AbsurdWeapons;
@@ -40,7 +41,8 @@ internal static class ShrinkBeam
     internal static ConfigEntry<float> GunShotDelay = null!;
     internal static ConfigEntry<int> GunClipSize = null!;
 
-    private const string BeamEvent = "MindAttic.GTFO.EZ.AbsurdWeapons.ShrinkBeam";
+    private const string BeamEvent = "MindAttic.GTFO.EZ.AbsurdWeapons.ShrinkBeam.v2";
+    private const string LegacyBeamEvent = "MindAttic.GTFO.EZ.AbsurdWeapons.ShrinkBeam";
     // How far from the received beam's end point a receiving client looks for the enemy it's on.
     private const float RemoteFindRadius = 0.6f;
     private static readonly Color PopColor = new(0.3f, 1f, 0.4f);
@@ -63,22 +65,31 @@ internal static class ShrinkBeam
 
     internal static void Init()
     {
-        RemoteEvents.Register<BeamMessage>(BeamEvent, (sender, message) =>
+        // Each received tick shrinks by the shooter's own amount down to the shooter's own floor
+        // (sent with it), not this game's config - the host's copy is the one whose slowdown counts.
+        Wire.Register<BeamMessage>(BeamEvent, (sender, message) =>
+            OnRemoteBeam(Wire.Actor(message.Shooter, sender), new Vector3(message.X0, message.Y0, message.Z0),
+                new Vector3(message.X1, message.Y1, message.Z1), message.Hit, message.Shrink, message.Floor));
+        // An older version's tick carries no numbers: this game's own stand in.
+        Wire.RegisterLegacy<LegacyBeamMessage>(LegacyBeamEvent, (sender, message) =>
+            OnRemoteBeam(sender, new Vector3(message.X0, message.Y0, message.Z0), new Vector3(message.X1, message.Y1, message.Z1),
+                message.Hit, ShrinkPerSecond.Value * TickSeconds,
+                message.Hit == BeamMessage.HitLock ? LockBreakScale.Value : MinScale.Value));
+    }
+
+    private static void OnRemoteBeam(ulong shooter, Vector3 start, Vector3 end, byte hit, float shrink, float floor)
+    {
+        ShrinkStream.Spawn(start, end, shooter);
+        // Only what the shooter's beam is on: a beam on the floor beside an enemy shrinks nothing.
+        if (hit == BeamMessage.HitEnemy)
         {
-            var start = new Vector3(message.X0, message.Y0, message.Z0);
-            var end = new Vector3(message.X1, message.Y1, message.Z1);
-            ShrinkStream.Spawn(start, end, sender);
-            // Only what the shooter's beam is on: a beam on the floor beside an enemy shrinks nothing.
-            if (message.Hit == BeamMessage.HitEnemy)
-            {
-                var enemy = NearestEnemy(end, RemoteFindRadius);
-                if (enemy != null && enemy.Alive) Shrink(enemy, TickSeconds);
-            }
-            else if (message.Hit == BeamMessage.HitLock && NearestLock(end) is { } padlock)
-            {
-                ShrinkLock(padlock, TickSeconds);
-            }
-        });
+            var enemy = NearestEnemy(end, RemoteFindRadius);
+            if (enemy != null && enemy.Alive) Shrink(enemy, shrink, floor);
+        }
+        else if (hit == BeamMessage.HitLock && NearestLock(end) is { } padlock)
+        {
+            ShrinkLock(padlock, shrink, floor);
+        }
     }
 
     // Seconds of shrink in one beam tick - the shooter's tick interval and what each received beam
@@ -140,27 +151,33 @@ internal static class ShrinkBeam
             return;
         }
 
+        var shrink = ShrinkPerSecond.Value * dt;
         if (hitEnemy != null && hitEnemy.Alive)
         {
-            var state = Shrink(hitEnemy, dt);
+            var state = Shrink(hitEnemy, shrink, MinScale.Value);
             if (state.Scale <= MinScale.Value) Pop(owner, state, gearCategoryId);
+            // Its slowdown is the host's copy of it slowing down: without the mod there, it doesn't.
+            if (!SNet.IsMaster) NetPresence.WarnIfHostLacksMod("the Shrink Beam's slowdown");
         }
         else if (hitLock != null)
         {
-            var state = ShrinkLock(hitLock, dt);
+            var state = ShrinkLock(hitLock, shrink, LockBreakScale.Value);
             if (state.Scale <= LockBreakScale.Value) PopLock(owner, state, hit.point, aim);
         }
 
         ShrinkStream.Spawn(start, end, source);
         var hitKind = hitEnemy != null && hitEnemy.Alive ? BeamMessage.HitEnemy : hitLock != null ? BeamMessage.HitLock : BeamMessage.HitNothing;
-        NetworkAPI.InvokeEvent(BeamEvent, new BeamMessage(start, end, hitKind));
+        var floor = hitKind == BeamMessage.HitLock ? LockBreakScale.Value : MinScale.Value;
+        Wire.Send(BeamEvent, new BeamMessage(start, end, hitKind, source, shrink, floor),
+            LegacyBeamEvent, new LegacyBeamMessage(start, end, hitKind));
     }
 
-    // Shrinks `enemy` by one tick's worth and applies it (scale and, scaled the same, its own top
-    // speed). The base speed is read once, the first time this enemy is ever touched, so repeated
-    // ticks scale from the same baseline instead of compounding.
+    // Shrinks `enemy` by one tick's worth (`amount` of its full size, no smaller than `floor`) and
+    // applies it (scale and, scaled the same, its own top speed). The base speed is read once, the
+    // first time this enemy is ever touched, so repeated ticks scale from the same baseline instead
+    // of compounding.
     [HideFromIl2Cpp]
-    private static Shrunk Shrink(EnemyAgent enemy, float dt)
+    private static Shrunk Shrink(EnemyAgent enemy, float amount, float floor)
     {
         if (!shrunk.TryGetValue(enemy.Pointer, out var state))
         {
@@ -183,7 +200,7 @@ internal static class ShrinkBeam
             state.CapturedBase = true;
         }
 
-        state.Scale = Mathf.Max(MinScale.Value, state.Scale - ShrinkPerSecond.Value * dt);
+        state.Scale = Mathf.Max(floor, state.Scale - amount);
         Apply(state);
         return state;
     }
@@ -253,7 +270,7 @@ internal static class ShrinkBeam
     }
 
     [HideFromIl2Cpp]
-    private static ShrunkLock ShrinkLock(LG_WeakLockDamage padlock, float dt)
+    private static ShrunkLock ShrinkLock(LG_WeakLockDamage padlock, float amount, float floor)
     {
         if (!shrunkLocks.TryGetValue(padlock.Pointer, out var state))
         {
@@ -263,7 +280,7 @@ internal static class ShrinkBeam
         }
         state.LastHit = Time.time;
         if (state.PoppedAt >= 0f) return state;
-        state.Scale = Mathf.Max(LockBreakScale.Value, state.Scale - ShrinkPerSecond.Value * dt);
+        state.Scale = Mathf.Max(floor, state.Scale - amount);
         state.Body.localScale = state.BaseScale * state.Scale;
         return state;
     }
@@ -409,10 +426,28 @@ internal static class ShrinkBeam
     private readonly struct BeamMessage
     {
         public const byte HitNothing = 0, HitEnemy = 1, HitLock = 2;
+        public readonly ulong Shooter; // the shooting player's lookup (whose beam this is)
         public readonly float X0, Y0, Z0, X1, Y1, Z1;
+        public readonly float Shrink, Floor; // the shooter's share of full size taken this tick, and the scale it stops at
         public readonly byte Hit; // what the shooter's beam is actually on: only that shrinks on teammates' games
 
-        public BeamMessage(Vector3 start, Vector3 end, byte hit)
+        public BeamMessage(Vector3 start, Vector3 end, byte hit, ulong shooter, float shrink, float floor)
+        {
+            Shooter = shooter;
+            (X0, Y0, Z0) = (start.x, start.y, start.z);
+            (X1, Y1, Z1) = (end.x, end.y, end.z);
+            (Shrink, Floor) = (shrink, floor);
+            Hit = hit;
+        }
+    }
+
+    // The pre-v2 layout, unchanged, for games on an older version.
+    private readonly struct LegacyBeamMessage
+    {
+        public readonly float X0, Y0, Z0, X1, Y1, Z1;
+        public readonly byte Hit;
+
+        public LegacyBeamMessage(Vector3 start, Vector3 end, byte hit)
         {
             (X0, Y0, Z0) = (start.x, start.y, start.z);
             (X1, Y1, Z1) = (end.x, end.y, end.z);

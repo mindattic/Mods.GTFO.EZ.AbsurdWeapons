@@ -43,7 +43,9 @@ internal static class RocketLauncher
     internal static ConfigEntry<float> GunShotDelay = null!;
     internal static ConfigEntry<int> GunClipSize = null!;
 
-    private const string LaunchEvent = "MindAttic.GTFO.EZ.AbsurdWeapons.RocketLaunch";
+    private const string LaunchEvent = "MindAttic.GTFO.EZ.AbsurdWeapons.RocketLaunch.v2";
+    private const string LegacyLaunchEvent = "MindAttic.GTFO.EZ.AbsurdWeapons.RocketLaunch";
+    // Unchanged since before v2 (its layout didn't change), so every version still shares it.
     private const string DetonateEvent = "MindAttic.GTFO.EZ.AbsurdWeapons.RocketDetonate";
 
     internal static void Bind(ConfigFile config)
@@ -60,9 +62,14 @@ internal static class RocketLauncher
 
     internal static void Init()
     {
-        RemoteEvents.Register<LaunchMessage>(LaunchEvent, (_, message) =>
+        // Teammates' copies fly at the shooter's own speed and last the shooter's own lifetime.
+        Wire.Register<LaunchMessage>(LaunchEvent, (_, message) =>
             RocketProjectile.Spawn(message.Id, null, new Vector3(message.X, message.Y, message.Z),
-                new Vector3(message.DirX, message.DirY, message.DirZ)));
+                new Vector3(message.DirX, message.DirY, message.DirZ), message.Speed, message.Lifetime));
+        // An older version's launch carries no numbers: this game's own are the best guess.
+        Wire.RegisterLegacy<LegacyLaunchMessage>(LegacyLaunchEvent, (_, message) =>
+            RocketProjectile.Spawn(message.Id, null, new Vector3(message.X, message.Y, message.Z),
+                new Vector3(message.DirX, message.DirY, message.DirZ), Speed.Value, Lifetime.Value));
         RemoteEvents.Register<DetonateMessage>(DetonateEvent, (_, message) =>
             RocketProjectile.Detonate(message.Id, new Vector3(message.X, message.Y, message.Z)));
     }
@@ -75,8 +82,9 @@ internal static class RocketLauncher
     {
         var direction = aim.normalized;
         var id = ((uint)(owner.Owner?.PlayerSlotIndex() ?? 0) << 24) | (++nextId & 0xFFFFFF);
-        RocketProjectile.Spawn(id, owner, position, direction, gearCategoryId);
-        NetworkAPI.InvokeEvent(LaunchEvent, new LaunchMessage(id, position, direction));
+        RocketProjectile.Spawn(id, owner, position, direction, Speed.Value, Lifetime.Value, gearCategoryId);
+        Wire.Send(LaunchEvent, new LaunchMessage(id, position, direction, Speed.Value, Lifetime.Value),
+            LegacyLaunchEvent, new LegacyLaunchMessage(id, position, direction));
     }
 
     // No aiming down sights: right-click is the remote detonator instead. The first-person holder's
@@ -130,8 +138,24 @@ internal static class RocketLauncher
     {
         public readonly uint Id;
         public readonly float X, Y, Z, DirX, DirY, DirZ;
+        public readonly float Speed, Lifetime; // the shooter's, so every copy flies alike
 
-        public LaunchMessage(uint id, Vector3 position, Vector3 direction)
+        public LaunchMessage(uint id, Vector3 position, Vector3 direction, float speed, float lifetime)
+        {
+            Id = id;
+            (X, Y, Z) = (position.x, position.y, position.z);
+            (DirX, DirY, DirZ) = (direction.x, direction.y, direction.z);
+            (Speed, Lifetime) = (speed, lifetime);
+        }
+    }
+
+    // The pre-v2 layout, unchanged, for games on an older version.
+    private readonly struct LegacyLaunchMessage
+    {
+        public readonly uint Id;
+        public readonly float X, Y, Z, DirX, DirY, DirZ;
+
+        public LegacyLaunchMessage(uint id, Vector3 position, Vector3 direction)
         {
             Id = id;
             (X, Y, Z) = (position.x, position.y, position.z);
@@ -188,6 +212,7 @@ internal sealed class RocketProjectile : MonoBehaviour
     private uint id, gearCategoryId;
     private PlayerAgent? owner; // null on a teammate's (visual-only) copy
     private Vector3 direction, origin;
+    private float speed, lifetime; // the shooter's, on every copy
     private float age, nextSpark, nextDustDistance, launchedAt, flickerSeed;
     private Transform? flame, core;
     private EffectLight? glow;
@@ -197,7 +222,7 @@ internal sealed class RocketProjectile : MonoBehaviour
     public RocketProjectile(IntPtr ptr) : base(ptr) { }
 
     [HideFromIl2Cpp]
-    internal static void Spawn(uint id, PlayerAgent? owner, Vector3 position, Vector3 direction, uint gearCategoryId = 0)
+    internal static void Spawn(uint id, PlayerAgent? owner, Vector3 position, Vector3 direction, float speed, float lifetime, uint gearCategoryId = 0)
     {
         var go = new GameObject("GTFO.EZ.AbsurdWeapons Rocket");
         go.transform.SetPositionAndRotation(position, Quaternion.LookRotation(direction));
@@ -217,6 +242,8 @@ internal sealed class RocketProjectile : MonoBehaviour
         rocket.owner = owner;
         rocket.direction = direction.normalized;
         rocket.origin = position;
+        rocket.speed = speed;
+        rocket.lifetime = lifetime;
         rocket.launchedAt = Time.time;
         rocket.flickerSeed = UnityEngine.Random.Range(0f, 100f);
 
@@ -245,7 +272,7 @@ internal sealed class RocketProjectile : MonoBehaviour
         {
             var dt = Time.deltaTime;
             age += dt;
-            if (age >= RocketLauncher.Lifetime.Value) { Remove(); return; } // Quake 1: flies 10 s, then just disappears
+            if (age >= lifetime) { Remove(); return; } // Quake 1: flies 10 s, then just disappears
 
             Spark();
             Dust();
@@ -267,7 +294,7 @@ internal sealed class RocketProjectile : MonoBehaviour
                 }
             }
 
-            var step = RocketLauncher.Speed.Value * dt;
+            var step = speed * dt;
 
             // Only the shooter's own copy ever decides it hit something; a teammate's copy has
             // nothing to simulate (no bounce, no gravity) and just waits for Detonate above.
@@ -360,9 +387,10 @@ internal sealed class RocketProjectile : MonoBehaviour
     }
 
     // Metres to the next puff, from the dust trail's distance so far.
-    private static float DustSpacing(float traveled)
+    [HideFromIl2Cpp]
+    private float DustSpacing(float traveled)
     {
-        var far = RocketLauncher.Speed.Value * DustInterval;
+        var far = speed * DustInterval;
         if (traveled <= DustDenseRange || far <= DustNearSpacing) return DustNearSpacing;
         return Mathf.Lerp(DustNearSpacing, far, (traveled - DustDenseRange) / (DustRampEnd - DustDenseRange));
     }
@@ -396,7 +424,12 @@ internal sealed class RocketProjectile : MonoBehaviour
         // Quake/Doom rockets hurt whoever's standing in the blast - shooter, bots and teammates
         // alike - not just enemies: the game's own explosion-damage sweep (MASK_EXPLOSION_TARGETS is
         // players and destructibles, not enemies - those are the AreaDamage.Apply above, with their
-        // own falloff), blocked by world geometry.
+        // own falloff), blocked by world geometry. The shooter's game alone runs it, and that reaches
+        // every player, not just the ones this game owns: a player's ExplosionDamage is the synced
+        // damage base's (Dam_PlayerDamageBase/Local don't override it), which sends the explosion-
+        // damage packet the player's own game then applies (ReceiveExplosionDamage) - the way a
+        // bullet's friendly fire lands. Running it on every game would hurt everyone once per game in
+        // the lobby (checked for G.AWPN-T235).
         try
         {
             DamageUtil.DoExplosionDamage(position, RocketLauncher.BlastRadius.Value, RocketLauncher.BlastDamage.Value,

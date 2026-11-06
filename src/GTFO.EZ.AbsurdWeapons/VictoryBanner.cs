@@ -32,8 +32,10 @@ internal static class VictoryBanner
     internal static ConfigEntry<float> SafetyLifetimeSeconds = null!;
     internal static ConfigEntry<float> PickupRange = null!;
 
-    private const string PlantEvent = "MindAttic.GTFO.EZ.AbsurdWeapons.BannerPlant";
-    private const string PickUpEvent = "MindAttic.GTFO.EZ.AbsurdWeapons.BannerPickUp";
+    private const string PlantEvent = "MindAttic.GTFO.EZ.AbsurdWeapons.BannerPlant.v2";
+    private const string PickUpEvent = "MindAttic.GTFO.EZ.AbsurdWeapons.BannerPickUp.v2";
+    private const string LegacyPlantEvent = "MindAttic.GTFO.EZ.AbsurdWeapons.BannerPlant";
+    private const string LegacyPickUpEvent = "MindAttic.GTFO.EZ.AbsurdWeapons.BannerPickUp";
 
     // Set while the launcher itself is firing, so glue from anything else stays glue.
     private static int launcherFiring;
@@ -66,15 +68,25 @@ internal static class VictoryBanner
 
     internal static void Init()
     {
-        RemoteEvents.Register<PlantMessage>(PlantEvent, (sender, message) =>
-            BannerPylon.Spawn(sender, new Vector3(message.X, message.Y, message.Z), new Vector3(message.NormalX, message.NormalY, message.NormalZ)));
-        RemoteEvents.Register<PickUpMessage>(PickUpEvent, (sender, _) => BannerPylon.Retire(sender));
+        // Keyed on the planter the message names (not whichever game sent it), healing with the
+        // planter's own radius, rate and amount rather than this game's config.
+        Wire.Register<PlantMessage>(PlantEvent, (sender, message) =>
+            BannerPylon.Spawn(Wire.Actor(message.Owner, sender), new Vector3(message.X, message.Y, message.Z),
+                new Vector3(message.NormalX, message.NormalY, message.NormalZ),
+                new BannerSettings(message.Radius, message.HealSeconds, message.HealPercent, message.Lifetime)));
+        Wire.Register<PickUpMessage>(PickUpEvent, (sender, message) => BannerPylon.Retire(Wire.Actor(message.Owner, sender)));
+        // An older version's: its sender is the planter, and this game's own numbers stand in.
+        Wire.RegisterLegacy<LegacyPlantMessage>(LegacyPlantEvent, (sender, message) =>
+            BannerPylon.Spawn(sender, new Vector3(message.X, message.Y, message.Z),
+                new Vector3(message.NormalX, message.NormalY, message.NormalZ), BannerSettings.FromConfig()));
+        Wire.RegisterLegacy<LegacyPickUpMessage>(LegacyPickUpEvent, (sender, _) => BannerPylon.Retire(sender));
     }
 
     // Called by the owner's own game (BannerPylon.StillInToolSlot) when their tool slot - PageUp/
     // PageDown, Home's restore, or just re-equipping something else - no longer holds the Victory
     // Banner: tells every client (itself included) to drop their copy, same as picking it up by hand.
-    internal static void BroadcastPickUp() => NetworkAPI.InvokeEvent(PickUpEvent, new PickUpMessage());
+    internal static void BroadcastPickUp(ulong owner) =>
+        Wire.Send(PickUpEvent, new PickUpMessage(owner), LegacyPickUpEvent, new LegacyPickUpMessage());
 
     // Every glob the C-Foam launcher would fire goes through here (the local player's only). Ours
     // plants the banner instead (if you don't have one up already).
@@ -160,9 +172,11 @@ internal static class VictoryBanner
             normal = hit.normal;
         }
 
-        BannerPylon.Spawn(lookup, position, normal);
+        var settings = BannerSettings.FromConfig();
+        BannerPylon.Spawn(lookup, position, normal, settings);
         Plugin.Logger.LogInfo($"GTFO.EZ.AbsurdWeapons Victory Banner: planted at {position}.");
-        NetworkAPI.InvokeEvent(PlantEvent, new PlantMessage(position, normal));
+        Wire.Send(PlantEvent, new PlantMessage(position, normal, lookup, settings),
+            LegacyPlantEvent, new LegacyPlantMessage(position, normal));
         owner.Sync?.WantsToWieldSlot(InventorySlot.GearStandard); // hands free of it, like a placed sentry
     }
 
@@ -171,7 +185,7 @@ internal static class VictoryBanner
     {
         var lookup = owner.Owner != null ? owner.Owner.Lookup : 0UL;
         BannerPylon.Retire(lookup);
-        NetworkAPI.InvokeEvent(PickUpEvent, new PickUpMessage());
+        BroadcastPickUp(lookup);
         Plugin.Logger.LogInfo("GTFO.EZ.AbsurdWeapons Victory Banner: picked back up.");
         owner.Sync?.WantsToWieldSlot(InventorySlot.GearClass);
     }
@@ -201,9 +215,31 @@ internal static class VictoryBanner
     // Plain fields so GTFO-API can copy it as raw bytes.
     private readonly struct PlantMessage
     {
+        public readonly ulong Owner; // the planting player's lookup
+        public readonly float X, Y, Z, NormalX, NormalY, NormalZ;
+        public readonly float Radius, HealSeconds, HealPercent, Lifetime; // the planter's
+
+        public PlantMessage(Vector3 position, Vector3 normal, ulong owner, BannerSettings settings)
+        {
+            Owner = owner;
+            (X, Y, Z) = (position.x, position.y, position.z);
+            (NormalX, NormalY, NormalZ) = (normal.x, normal.y, normal.z);
+            (Radius, HealSeconds, HealPercent, Lifetime) = (settings.Radius, settings.HealSeconds, settings.HealPercent, settings.Lifetime);
+        }
+    }
+
+    private readonly struct PickUpMessage
+    {
+        public readonly ulong Owner; // whose banner comes down
+        public PickUpMessage(ulong owner) => Owner = owner;
+    }
+
+    // The pre-v2 layouts, unchanged, for games on an older version.
+    private readonly struct LegacyPlantMessage
+    {
         public readonly float X, Y, Z, NormalX, NormalY, NormalZ;
 
-        public PlantMessage(Vector3 position, Vector3 normal)
+        public LegacyPlantMessage(Vector3 position, Vector3 normal)
         {
             (X, Y, Z) = (position.x, position.y, position.z);
             (NormalX, NormalY, NormalZ) = (normal.x, normal.y, normal.z);
@@ -212,11 +248,23 @@ internal static class VictoryBanner
 
     // A zero-field struct would throw from GTFO-API's Marshal.SizeOf<T>() (no meaningful size can be
     // computed for a type with no fields), so this carries one dummy byte just to have a layout.
-    private readonly struct PickUpMessage
+    private readonly struct LegacyPickUpMessage
     {
         public readonly byte Dummy;
-        public PickUpMessage() => Dummy = 0;
+        public LegacyPickUpMessage() => Dummy = 0;
     }
+}
+
+/// <summary>One planted banner's numbers - its planter's config, fixed when it goes down.</summary>
+internal readonly struct BannerSettings
+{
+    public readonly float Radius, HealSeconds, HealPercent, Lifetime;
+
+    public BannerSettings(float radius, float healSeconds, float healPercent, float lifetime) =>
+        (Radius, HealSeconds, HealPercent, Lifetime) = (radius, healSeconds, healPercent, lifetime);
+
+    internal static BannerSettings FromConfig() =>
+        new(VictoryBanner.Radius.Value, VictoryBanner.HealSeconds.Value, VictoryBanner.HealPercent.Value, VictoryBanner.SafetyLifetimeSeconds.Value);
 }
 
 /// <summary>
@@ -237,6 +285,7 @@ internal sealed class BannerPylon : MonoBehaviour
     private static readonly Dictionary<ulong, BannerPylon> activeByOwner = new();
 
     private ulong ownerLookup;
+    private BannerSettings settings; // the planter's radius, heal and lifetime, on every copy
     private bool retired;
     private float placedAt, nextHealAt, nextRingAt, nextToolCheckAt, ringProgress = -1f;
     private LineRenderer ring = null!, aura = null!;
@@ -250,7 +299,7 @@ internal sealed class BannerPylon : MonoBehaviour
     internal static bool HasActive(ulong ownerLookup) => activeByOwner.TryGetValue(ownerLookup, out var pylon) && pylon != null && !pylon.retired;
 
     [HideFromIl2Cpp]
-    internal static void Spawn(ulong ownerLookup, Vector3 position, Vector3 normal)
+    internal static void Spawn(ulong ownerLookup, Vector3 position, Vector3 normal, BannerSettings settings)
     {
         if (activeByOwner.TryGetValue(ownerLookup, out var old) && old != null) old.Retire();
 
@@ -263,6 +312,7 @@ internal sealed class BannerPylon : MonoBehaviour
         var pylon = go.AddComponent<BannerPylon>();
         pylon.flag = flag;
         pylon.ownerLookup = ownerLookup;
+        pylon.settings = settings;
         pylon.placedAt = Time.time;
         pylon.nextHealAt = pylon.nextRingAt = Time.time; // heals right away
 
@@ -290,7 +340,7 @@ internal sealed class BannerPylon : MonoBehaviour
         glowObject.transform.localPosition = Vector3.up * 1.6f;
         pylon.glow = glowObject.AddComponent<EffectLight>();
         pylon.glow.Color = BannerColor;
-        pylon.glow.Range = VictoryBanner.Radius.Value * 1.2f;
+        pylon.glow.Range = settings.Radius * 1.2f;
         pylon.glow.Intensity = 2f;
         pylon.glow.enabled = true;
 
@@ -323,7 +373,7 @@ internal sealed class BannerPylon : MonoBehaviour
             // The level ended (won, lost or left): the banner goes with it, or the next drop would
             // see it as already down and it would keep healing at its old spot.
             if (GameStateManager.CurrentStateName != eGameStateName.InLevel
-                || Time.time - placedAt >= VictoryBanner.SafetyLifetimeSeconds.Value)
+                || Time.time - placedAt >= settings.Lifetime)
             {
                 Retire();
                 return;
@@ -338,7 +388,7 @@ internal sealed class BannerPylon : MonoBehaviour
                     if (!StillInToolSlot())
                     {
                         Retire();
-                        VictoryBanner.BroadcastPickUp();
+                        VictoryBanner.BroadcastPickUp(ownerLookup);
                         return;
                     }
                 }
@@ -356,7 +406,7 @@ internal sealed class BannerPylon : MonoBehaviour
 
             if (Time.time >= nextHealAt)
             {
-                nextHealAt = Time.time + Mathf.Max(0.05f, VictoryBanner.HealSeconds.Value);
+                nextHealAt = Time.time + Mathf.Max(0.05f, settings.HealSeconds);
                 Heal();
             }
             if (Time.time >= nextRingAt)
@@ -459,7 +509,7 @@ internal sealed class BannerPylon : MonoBehaviour
     private void HealIfInside(PlayerAgent? player)
     {
         if (player == null || !player.Alive) return;
-        if (Vector3.Distance(player.Position, transform.position) > VictoryBanner.Radius.Value) return;
+        if (Vector3.Distance(player.Position, transform.position) > settings.Radius) return;
 
         try
         {
@@ -467,7 +517,7 @@ internal sealed class BannerPylon : MonoBehaviour
             if (damage == null) return;
             // The game's own heal (synced), a share of max health.
             if (damage.Health >= damage.HealthMax) return;
-            damage.AddHealth(damage.HealthMax * VictoryBanner.HealPercent.Value / 100f, player.Cast<Agent>());
+            damage.AddHealth(damage.HealthMax * settings.HealPercent / 100f, player.Cast<Agent>());
         }
         catch (Exception e)
         {
@@ -496,7 +546,7 @@ internal sealed class BannerPylon : MonoBehaviour
         ring.startWidth = ring.endWidth = 0.08f;
         ring.startColor = ring.endColor = new Color(BannerColor.r, BannerColor.g, BannerColor.b, fade);
         ring.enabled = true;
-        Circle(ring, VictoryBanner.Radius.Value * ringProgress, 0.05f);
+        Circle(ring, settings.Radius * ringProgress, 0.05f);
     }
 
     // The aura ring stays at the healing radius, breathing, and flares on each heal; the flag waves.
@@ -507,8 +557,8 @@ internal sealed class BannerPylon : MonoBehaviour
         var breathe = 0.5f + 0.5f * Mathf.Sin(Time.time * 2f);
         aura.startWidth = aura.endWidth = 0.1f + 0.06f * flash;
         aura.startColor = aura.endColor = new Color(BannerColor.r, BannerColor.g, BannerColor.b, 0.45f + 0.25f * breathe + 0.3f * flash);
-        Circle(aura, VictoryBanner.Radius.Value, 0.04f);
-        glow.Range = VictoryBanner.Radius.Value * 1.2f;
+        Circle(aura, settings.Radius, 0.04f);
+        glow.Range = settings.Radius * 1.2f;
         glow.Intensity = 1.5f + 0.8f * breathe + 5f * flash;
         if (flag != null) flag.localRotation = Quaternion.Euler(0f, 12f * Mathf.Sin(Time.time * 3.1f), 4f * Mathf.Sin(Time.time * 5.3f));
     }

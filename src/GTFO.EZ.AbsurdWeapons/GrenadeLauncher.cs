@@ -36,7 +36,8 @@ internal static class GrenadeLauncher
     internal static ConfigEntry<float> GunShotDelay = null!;
     internal static ConfigEntry<int> GunClipSize = null!;
 
-    private const string LaunchEvent = "MindAttic.GTFO.EZ.AbsurdWeapons.GrenadeLaunch";
+    private const string LaunchEvent = "MindAttic.GTFO.EZ.AbsurdWeapons.GrenadeLaunch.v2";
+    private const string LegacyLaunchEvent = "MindAttic.GTFO.EZ.AbsurdWeapons.GrenadeLaunch";
     private const string DetonateEvent = "MindAttic.GTFO.EZ.AbsurdWeapons.GrenadeDetonate";
 
     internal static void Bind(ConfigFile config)
@@ -56,9 +57,16 @@ internal static class GrenadeLauncher
 
     internal static void Init()
     {
-        RemoteEvents.Register<LaunchMessage>(LaunchEvent, (_, message) =>
+        // Teammates' copies fly with the shooter's own gravity, bounce and fuse (sent with the
+        // launch), not this game's config.
+        Wire.Register<LaunchMessage>(LaunchEvent, (_, message) =>
             LauncherGrenade.Spawn(message.Id, null, new Vector3(message.X, message.Y, message.Z),
-                new Vector3(message.VelX, message.VelY, message.VelZ)));
+                new Vector3(message.VelX, message.VelY, message.VelZ),
+                new GrenadeFlight(message.Gravity, message.Bounciness, message.Fuse)));
+        // An older version's launch carries no numbers: this game's own are the best guess.
+        Wire.RegisterLegacy<LegacyLaunchMessage>(LegacyLaunchEvent, (_, message) =>
+            LauncherGrenade.Spawn(message.Id, null, new Vector3(message.X, message.Y, message.Z),
+                new Vector3(message.VelX, message.VelY, message.VelZ), GrenadeFlight.FromConfig()));
         RemoteEvents.Register<DetonateMessage>(DetonateEvent, (_, message) =>
             LauncherGrenade.Detonate(message.Id, new Vector3(message.X, message.Y, message.Z)));
     }
@@ -72,8 +80,10 @@ internal static class GrenadeLauncher
         // Quake 1: along the aim plus a fixed upward lob.
         var velocity = aim.normalized * Speed.Value + Vector3.up * Lift.Value;
         var id = ((uint)(owner.Owner?.PlayerSlotIndex() ?? 0) << 24) | (++nextId & 0xFFFFFF);
-        LauncherGrenade.Spawn(id, owner, position, velocity, gearCategoryId);
-        NetworkAPI.InvokeEvent(LaunchEvent, new LaunchMessage(id, position, velocity));
+        var flight = GrenadeFlight.FromConfig();
+        LauncherGrenade.Spawn(id, owner, position, velocity, flight, gearCategoryId);
+        Wire.Send(LaunchEvent, new LaunchMessage(id, position, velocity, flight),
+            LegacyLaunchEvent, new LegacyLaunchMessage(id, position, velocity));
     }
 
     internal static void SendDetonate(uint id, Vector3 position) =>
@@ -84,8 +94,24 @@ internal static class GrenadeLauncher
     {
         public readonly uint Id;
         public readonly float X, Y, Z, VelX, VelY, VelZ;
+        public readonly float Gravity, Bounciness, Fuse; // the shooter's, so every copy flies alike
 
-        public LaunchMessage(uint id, Vector3 position, Vector3 velocity)
+        public LaunchMessage(uint id, Vector3 position, Vector3 velocity, GrenadeFlight flight)
+        {
+            Id = id;
+            (X, Y, Z) = (position.x, position.y, position.z);
+            (VelX, VelY, VelZ) = (velocity.x, velocity.y, velocity.z);
+            (Gravity, Bounciness, Fuse) = (flight.Gravity, flight.Bounciness, flight.Fuse);
+        }
+    }
+
+    // The pre-v2 layout, unchanged, for games on an older version.
+    private readonly struct LegacyLaunchMessage
+    {
+        public readonly uint Id;
+        public readonly float X, Y, Z, VelX, VelY, VelZ;
+
+        public LegacyLaunchMessage(uint id, Vector3 position, Vector3 velocity)
         {
             Id = id;
             (X, Y, Z) = (position.x, position.y, position.z);
@@ -104,6 +130,22 @@ internal static class GrenadeLauncher
             (X, Y, Z) = (position.x, position.y, position.z);
         }
     }
+}
+
+/// <summary>How one grenade flies: the shooter's gravity, bounce and fuse, fixed at launch.</summary>
+internal readonly struct GrenadeFlight
+{
+    public readonly float Gravity, Bounciness, Fuse;
+
+    public GrenadeFlight(float gravity, float bounciness, float fuse)
+    {
+        Gravity = gravity;
+        Bounciness = bounciness;
+        Fuse = fuse;
+    }
+
+    internal static GrenadeFlight FromConfig() =>
+        new(GrenadeLauncher.Gravity.Value, GrenadeLauncher.GrenadeBounciness.Value, GrenadeLauncher.FuseSeconds.Value);
 }
 
 /// <summary>
@@ -134,6 +176,7 @@ internal sealed class LauncherGrenade : MonoBehaviour
 
     private uint id, gearCategoryId;
     private PlayerAgent? owner; // null on a teammate's (visual-only) copy
+    private GrenadeFlight flight; // the shooter's gravity, bounce and fuse, on every copy
     private Vector3 velocity, spinAxis;
     private float age, spinSpeed, nextFlash, lastBounceSound;
     private bool resting, exploded, lit;
@@ -143,7 +186,7 @@ internal sealed class LauncherGrenade : MonoBehaviour
     public LauncherGrenade(IntPtr ptr) : base(ptr) { }
 
     [HideFromIl2Cpp]
-    internal static void Spawn(uint id, PlayerAgent? owner, Vector3 position, Vector3 velocity, uint gearCategoryId = 0)
+    internal static void Spawn(uint id, PlayerAgent? owner, Vector3 position, Vector3 velocity, GrenadeFlight flight, uint gearCategoryId = 0)
     {
         var go = new GameObject("GTFO.EZ.AbsurdWeapons Launcher Grenade");
         go.transform.position = position;
@@ -153,6 +196,7 @@ internal sealed class LauncherGrenade : MonoBehaviour
         grenade.id = id;
         grenade.gearCategoryId = gearCategoryId;
         grenade.owner = owner;
+        grenade.flight = flight;
         grenade.velocity = velocity;
         grenade.spinAxis = UnityEngine.Random.onUnitSphere;
         grenade.spinSpeed = UnityEngine.Random.Range(360f, 900f);
@@ -201,7 +245,7 @@ internal sealed class LauncherGrenade : MonoBehaviour
             age += dt;
             Flash();
 
-            if (owner == null ? age >= GrenadeLauncher.FuseSeconds.Value + RemoteGraceSeconds : age >= GrenadeLauncher.FuseSeconds.Value)
+            if (owner == null ? age >= flight.Fuse + RemoteGraceSeconds : age >= flight.Fuse)
             {
                 Explode();
                 return;
@@ -221,7 +265,7 @@ internal sealed class LauncherGrenade : MonoBehaviour
     [HideFromIl2Cpp]
     private void Fly(float dt)
     {
-        velocity += Vector3.down * (GrenadeLauncher.Gravity.Value * dt);
+        velocity += Vector3.down * (flight.Gravity * dt);
         var position = transform.position;
         var step = velocity * dt;
         var distance = step.magnitude;
@@ -253,7 +297,7 @@ internal sealed class LauncherGrenade : MonoBehaviour
         if (hitWorld)
         {
             transform.position = hit.point + hit.normal * (Radius + 0.01f);
-            velocity = Vector3.Reflect(velocity, hit.normal) * GrenadeLauncher.GrenadeBounciness.Value;
+            velocity = Vector3.Reflect(velocity, hit.normal) * flight.Bounciness;
             spinSpeed *= 0.7f;
             if (velocity.magnitude > 2f && age - lastBounceSound > 0.1f)
             {
@@ -278,8 +322,8 @@ internal sealed class LauncherGrenade : MonoBehaviour
     [HideFromIl2Cpp]
     private void Flash()
     {
-        var progress = Mathf.Clamp01(age / GrenadeLauncher.FuseSeconds.Value);
-        var interval = Formulas.GrenadeFlashInterval(age, GrenadeLauncher.FuseSeconds.Value);
+        var progress = Mathf.Clamp01(age / flight.Fuse);
+        var interval = Formulas.GrenadeFlashInterval(age, flight.Fuse);
         if (age >= nextFlash)
         {
             nextFlash = age + interval;

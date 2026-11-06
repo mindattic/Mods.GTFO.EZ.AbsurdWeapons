@@ -7,6 +7,28 @@
   different switches had different gear categories - a teammate's Absurd weapon could be an id your
   game had never heard of. Every weapon is now always registered; `Enabled` only takes it out of the
   loadout screen and the weapon cycle.
+- **Bug fix (G.AWPN-T235, from the G.EZ-T122 audit): teammates' copies now use the shooter's
+  settings.** A teammate's game flew your grenades, rockets and thrown Mjolnir, ran your Shrink Beam
+  and healed from your Victory Banner with *its own* config, so with different settings they bounced,
+  fused, flew, shrank or healed differently from game to game. Every launch, throw, beam tick and
+  plant now carries the shooter's numbers (grenade gravity/bounce/fuse, rocket speed/lifetime,
+  Mjolnir speeds/reach/spin, shrink per tick and its floor, banner radius/heal rate/heal amount/
+  lifetime), and every game uses those.
+- **Stealth, thrown Mjolnir, Victory Banner, Shrink Beam and knockback messages name the player
+  they're about**, instead of assuming it's whichever game sent them.
+- **The host lacking the mod is no longer silent:** knockback, Shadow Dagger stealth and the Shrink
+  Beam's slowdown only take effect on the host's game. A client now finds out whether the host runs
+  the mod (a hello at the start of each level), and if it doesn't, says so once per level in the event
+  log and the console the first time one of those comes up.
+- **Switching Absurd Weapons on or off (End) now shows in teammates' event logs**, naming who did it,
+  because it changes your loadout in front of them and switching off resets your health.
+- Rocket splash damage to players was checked: it already hurts the shooter, bots and teammates
+  alike, once each. The game's explosion damage to a player is sent to the game that owns that
+  player, so it isn't limited to the shooter's own machine. Unchanged.
+- **Network messages are versioned:** every message whose layout changed is sent under a new `.v2`
+  name, followed by the old message for players still on an older version. Players on this version
+  ignore the old copy from anyone they've heard the new one from, so nothing shows up twice. Mixing
+  versions still works, but an older game uses its own settings for your projectiles, as before.
 
 ## v20
 

@@ -40,7 +40,8 @@ internal static class Stealth
 
     // A charged hit counts as full when it deals at least this share of the full charged damage.
     private const float FullChargeShare = 0.95f;
-    private const string StealthEvent = "MindAttic.GTFO.EZ.AbsurdWeapons.Stealth";
+    private const string StealthEvent = "MindAttic.GTFO.EZ.AbsurdWeapons.Stealth.v2";
+    private const string LegacyStealthEvent = "MindAttic.GTFO.EZ.AbsurdWeapons.Stealth";
 
     // Keyed by the player's Steam id (SNet_Player.Lookup): when their stealth ends, in Time.time.
     private static readonly Dictionary<ulong, float> hiddenUntil = new();
@@ -64,7 +65,17 @@ internal static class Stealth
 
     internal static void Init()
     {
-        RemoteEvents.Register<StealthMessage>(StealthEvent, (sender, message) => Hide(sender, message.Seconds));
+        // The hidden player the message names, not whichever game sent it.
+        Wire.Register<StealthMessage>(StealthEvent, (sender, message) => Hide(Wire.Actor(message.Player, sender), message.Seconds));
+        // An older version's: its sender is the hidden player.
+        Wire.RegisterLegacy<LegacyStealthMessage>(LegacyStealthEvent, (sender, message) => Hide(sender, message.Seconds));
+    }
+
+    private static void Broadcast(ulong player, float seconds)
+    {
+        Wire.Send(StealthEvent, new StealthMessage(player, seconds), LegacyStealthEvent, new LegacyStealthMessage(seconds));
+        // Enemies ignoring the hidden player is the host's enemy AI: without the mod there, nothing hides.
+        if (seconds > 0f && !SNetwork.SNet.IsMaster) NetPresence.WarnIfHostLacksMod("Shadow Dagger stealth");
     }
 
     internal static bool IsHidden(Agent? agent) => Remaining(agent) > 0f;
@@ -98,7 +109,7 @@ internal static class Stealth
         var wielded = player.Inventory?.WieldedItem;
         if (wielded == null || wielded.GearCategoryData?.persistentID == MeleeInjector.ShadowDaggerId) return;
         Hide(player.Owner.Lookup, 0f);
-        NetworkAPI.InvokeEvent(StealthEvent, new StealthMessage(0f));
+        Broadcast(player.Owner.Lookup, 0f);
     }
 
     // (Fast stabs: the dagger's light attacks are 2.5x as fast - MeleeInjector / SwordTempo.)
@@ -117,7 +128,7 @@ internal static class Stealth
     {
         if (local.Owner == null) return;
         Hide(local.Owner.Lookup, seconds);
-        NetworkAPI.InvokeEvent(StealthEvent, new StealthMessage(seconds));
+        Broadcast(local.Owner.Lookup, seconds);
     }
 
     // One check per enemy, however many times it was hit: a kill counts once.
@@ -233,11 +244,19 @@ internal static class Stealth
     [HarmonyPrefix]
     private static bool PropagatedTarget(Agent agent) => !IsHidden(agent);
 
-    // Plain fields so GTFO-API can copy it as raw bytes. The sender is the hidden player.
+    // Plain fields so GTFO-API can copy it as raw bytes.
     private readonly struct StealthMessage
     {
+        public readonly ulong Player; // the hidden player's lookup
         public readonly float Seconds;
-        public StealthMessage(float seconds) => Seconds = seconds;
+        public StealthMessage(ulong player, float seconds) => (Player, Seconds) = (player, seconds);
+    }
+
+    // The pre-v2 layout, unchanged, for games on an older version. The sender is the hidden player.
+    private readonly struct LegacyStealthMessage
+    {
+        public readonly float Seconds;
+        public LegacyStealthMessage(float seconds) => Seconds = seconds;
     }
 }
 

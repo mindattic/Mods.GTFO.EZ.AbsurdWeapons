@@ -571,6 +571,20 @@ through the normal bullet path, so health, stagger and kills stay in sync. Teamm
 shot, beam, tentacle, bolt, grenade, flash and stealth, and see the same thing. Knockback is done by
 the host, who owns enemy positions.
 
+Everyone sees your grenades, rockets, thrown Mjolnir, Shrink Beam and Victory Banner the way your
+own settings make them: the shooter's gravity, bounce, fuse, speeds, reach, shrink rate and banner
+radius and healing travel with each one, so a teammate's different config doesn't change what they
+see or how fast your banner heals them.
+
+Some things only work if the host has this mod, because enemies belong to the host: knockback,
+Shadow Dagger stealth (enemies ignoring you) and the Shrink Beam's slowdown. If you're a client and
+the host doesn't answer as running the mod, the event log says so, once per level, the first time
+one of those comes up. When you switch Absurd Weapons on or off with End, your teammates see that in
+their event log too.
+
+Rocket blasts hurt the shooter, bots and teammates in range alike, once each, wherever they're
+playing from.
+
 ## Compatibility
 
 - **GTFO.EZ:** compatible, in either load order; where the two clash, this mod wins. Everything it

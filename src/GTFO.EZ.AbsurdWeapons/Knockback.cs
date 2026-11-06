@@ -24,7 +24,8 @@ namespace GTFO.EZ.AbsurdWeapons;
 /// </summary>
 internal static class Knockback
 {
-    private const string KnockEvent = "MindAttic.GTFO.EZ.AbsurdWeapons.Knockback";
+    private const string KnockEvent = "MindAttic.GTFO.EZ.AbsurdWeapons.Knockback.v2";
+    private const string LegacyKnockEvent = "MindAttic.GTFO.EZ.AbsurdWeapons.Knockback";
 
     internal static ConfigEntry<float> Sharpness = null!;
     internal static ConfigEntry<float> MaxSeconds = null!;
@@ -41,15 +42,21 @@ internal static class Knockback
 
     internal static void Init()
     {
-        RemoteEvents.Register<KnockMessage>(KnockEvent, (sender, message) =>
-        {
-            if (!SNet.IsMaster) return;
-            var enemy = message.Enemy.TryGet(out var named) && named != null ? named : EnemyNear(new Vector3(message.X, message.Y, message.Z));
-            // The client who knocked it back gets the credit for any wall slam.
-            if (enemy != null)
-                KnockbackSlides.Start(enemy, new Vector3(message.DirX, 0f, message.DirZ), message.Distance, message.SlamDamagePerMeter,
-                    PlayerFor(sender), message.GearCategoryId);
-        });
+        // The attacker the request names gets the credit for any wall slam.
+        Wire.Register<KnockMessage>(KnockEvent, (sender, message) =>
+            OnRequest(message.Knock, PlayerFor(Wire.Actor(message.Attacker, sender))));
+        // An older version's request: its sender is the attacker.
+        Wire.RegisterLegacy<LegacyKnockMessage>(LegacyKnockEvent, (sender, message) => OnRequest(message, PlayerFor(sender)));
+    }
+
+    // On the host: a client's knockback, carried out.
+    private static void OnRequest(LegacyKnockMessage message, PlayerAgent? attacker)
+    {
+        if (!SNet.IsMaster) return;
+        var enemy = message.Enemy.TryGet(out var named) && named != null ? named : EnemyNear(new Vector3(message.X, message.Y, message.Z));
+        if (enemy != null)
+            KnockbackSlides.Start(enemy, new Vector3(message.DirX, 0f, message.DirZ), message.Distance, message.SlamDamagePerMeter,
+                attacker, message.GearCategoryId);
     }
 
     // Pushes `enemy` `distance` metres along `direction` (flattened to the ground). With a slam
@@ -63,8 +70,17 @@ internal static class Knockback
         if (direction.sqrMagnitude < 0.0001f) return;
         direction.Normalize();
 
-        if (SNet.IsMaster) KnockbackSlides.Start(enemy, direction, distance, slamDamagePerMeter, attacker, gearCategoryId);
-        else NetworkAPI.InvokeEvent(KnockEvent, new KnockMessage(enemy, direction, distance, slamDamagePerMeter, gearCategoryId));
+        if (SNet.IsMaster)
+        {
+            KnockbackSlides.Start(enemy, direction, distance, slamDamagePerMeter, attacker, gearCategoryId);
+            return;
+        }
+        // Only the host moves enemies, so only the host is asked.
+        var master = SNet.Master;
+        if (master == null) return;
+        var knock = new LegacyKnockMessage(enemy, direction, distance, slamDamagePerMeter, gearCategoryId);
+        Wire.SendTo(master, KnockEvent, new KnockMessage(knock, Wire.LookupOf(attacker)), LegacyKnockEvent, knock);
+        NetPresence.WarnIfHostLacksMod("knockback");
     }
 
     // The player agent of the player with this Steam id (SNet_Player.Lookup).
@@ -89,15 +105,24 @@ internal static class Knockback
         return best;
     }
 
-    // Plain fields so GTFO-API can copy it as raw bytes. The enemy goes by its network id; its
-    // position is a fallback for when the host can't resolve the id.
+    // Plain fields so GTFO-API can copy it as raw bytes: the old request, plus who knocked it back.
     private readonly struct KnockMessage
+    {
+        public readonly ulong Attacker; // the attacking player's lookup
+        public readonly LegacyKnockMessage Knock;
+
+        public KnockMessage(LegacyKnockMessage knock, ulong attacker) => (Knock, Attacker) = (knock, attacker);
+    }
+
+    // The pre-v2 layout, unchanged, for games on an older version (the sender is the attacker). The
+    // enemy goes by its network id; its position is a fallback for when the host can't resolve the id.
+    private readonly struct LegacyKnockMessage
     {
         public readonly pEnemyAgent Enemy;
         public readonly float X, Y, Z, DirX, DirZ, Distance, SlamDamagePerMeter;
         public readonly uint GearCategoryId;
 
-        public KnockMessage(EnemyAgent enemy, Vector3 direction, float distance, float slamDamagePerMeter, uint gearCategoryId)
+        public LegacyKnockMessage(EnemyAgent enemy, Vector3 direction, float distance, float slamDamagePerMeter, uint gearCategoryId)
         {
             SlamDamagePerMeter = slamDamagePerMeter;
             GearCategoryId = gearCategoryId;

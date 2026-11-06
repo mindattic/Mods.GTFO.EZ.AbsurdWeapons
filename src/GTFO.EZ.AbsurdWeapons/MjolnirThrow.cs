@@ -36,7 +36,8 @@ internal static class MjolnirThrow
     internal static ConfigEntry<float> PulseDamage = null!;
     internal static ConfigEntry<int> PulseJumps = null!;
     private const float FullChargeLeeway = 0.95f;
-    private const string ThrowEvent = "MindAttic.GTFO.EZ.AbsurdWeapons.MjolnirThrow";
+    private const string ThrowEvent = "MindAttic.GTFO.EZ.AbsurdWeapons.MjolnirThrow.v2";
+    private const string LegacyThrowEvent = "MindAttic.GTFO.EZ.AbsurdWeapons.MjolnirThrow";
 
     private static float chargeStarted = -1f;
 
@@ -60,10 +61,16 @@ internal static class MjolnirThrow
 
     internal static void Init()
     {
-        RemoteEvents.Register<ThrowMessage>(ThrowEvent, (sender, message) =>
-            // The sender's own agent, so their hammer flies back to them.
+        // The thrower the message names (not whichever game sent it), so the hammer flies back to
+        // them, at the thrower's own speeds, reach and spin.
+        Wire.Register<ThrowMessage>(ThrowEvent, (sender, message) =>
+            ThrownHammer.Spawn(null, Knockback.PlayerFor(Wire.Actor(message.Thrower, sender)), new Vector3(message.X, message.Y, message.Z),
+                new Vector3(message.DirX, message.DirY, message.DirZ), null,
+                new HammerFlight(message.Speed, message.ReturnSpeed, message.Reach, message.Spin)));
+        // An older version's throw: its sender is the thrower, and this game's own numbers stand in.
+        Wire.RegisterLegacy<LegacyThrowMessage>(LegacyThrowEvent, (sender, message) =>
             ThrownHammer.Spawn(null, Knockback.PlayerFor(sender), new Vector3(message.X, message.Y, message.Z),
-                new Vector3(message.DirX, message.DirY, message.DirZ), null));
+                new Vector3(message.DirX, message.DirY, message.DirZ), null, HammerFlight.FromConfig()));
     }
 
     [HarmonyPatch(typeof(MeleeWeaponFirstPerson), nameof(MeleeWeaponFirstPerson.ChangeState))]
@@ -99,8 +106,10 @@ internal static class MjolnirThrow
             // (the flight's own wall check then turns it straight back).
             if (Physics.Linecast(camera.Position, start, out var blocked, LayerManager.MASK_WORLD))
                 start = blocked.point - (start - camera.Position).normalized * 0.2f;
-            ThrownHammer.Spawn(owner, owner, start, direction, __instance.gameObject);
-            NetworkAPI.InvokeEvent(ThrowEvent, new ThrowMessage(start, direction));
+            var flight = HammerFlight.FromConfig();
+            ThrownHammer.Spawn(owner, owner, start, direction, __instance.gameObject, flight);
+            Wire.Send(ThrowEvent, new ThrowMessage(start, direction, Wire.LookupOf(owner), flight),
+                LegacyThrowEvent, new LegacyThrowMessage(start, direction));
         }
         catch (Exception e)
         {
@@ -111,14 +120,42 @@ internal static class MjolnirThrow
     // Plain fields so GTFO-API can copy it as raw bytes.
     private readonly struct ThrowMessage
     {
+        public readonly ulong Thrower; // the throwing player's lookup
+        public readonly float X, Y, Z, DirX, DirY, DirZ;
+        public readonly float Speed, ReturnSpeed, Reach, Spin; // the thrower's
+
+        public ThrowMessage(Vector3 start, Vector3 direction, ulong thrower, HammerFlight flight)
+        {
+            Thrower = thrower;
+            (X, Y, Z) = (start.x, start.y, start.z);
+            (DirX, DirY, DirZ) = (direction.x, direction.y, direction.z);
+            (Speed, ReturnSpeed, Reach, Spin) = (flight.Speed, flight.ReturnSpeed, flight.Reach, flight.Spin);
+        }
+    }
+
+    // The pre-v2 layout, unchanged, for games on an older version.
+    private readonly struct LegacyThrowMessage
+    {
         public readonly float X, Y, Z, DirX, DirY, DirZ;
 
-        public ThrowMessage(Vector3 start, Vector3 direction)
+        public LegacyThrowMessage(Vector3 start, Vector3 direction)
         {
             (X, Y, Z) = (start.x, start.y, start.z);
             (DirX, DirY, DirZ) = (direction.x, direction.y, direction.z);
         }
     }
+}
+
+/// <summary>How one thrown hammer flies: the thrower's speeds, reach and spin, fixed at the throw.</summary>
+internal readonly struct HammerFlight
+{
+    public readonly float Speed, ReturnSpeed, Reach, Spin;
+
+    public HammerFlight(float speed, float returnSpeed, float reach, float spin) =>
+        (Speed, ReturnSpeed, Reach, Spin) = (speed, returnSpeed, reach, spin);
+
+    internal static HammerFlight FromConfig() =>
+        new(MjolnirThrow.Speed.Value, MjolnirThrow.ReturnSpeed.Value, MjolnirThrow.Reach.Value, MjolnirThrow.SpinDegreesPerSecond.Value);
 }
 
 /// <summary>
@@ -131,6 +168,7 @@ internal sealed class ThrownHammer : MonoBehaviour
 
     private PlayerAgent? owner;   // the thrower on their own game (deals damage); null on teammates' copies
     private PlayerAgent? thrower; // whose hand it returns to
+    private HammerFlight flight;  // the thrower's speeds, reach and spin, on every copy
     private Vector3 origin, direction, spinAxis;
     private bool returning;
     private float travelled, nextPulse, age;
@@ -149,7 +187,7 @@ internal sealed class ThrownHammer : MonoBehaviour
     }
 
     [HideFromIl2Cpp]
-    internal static void Spawn(PlayerAgent? owner, PlayerAgent? thrower, Vector3 start, Vector3 direction, GameObject? heldModel)
+    internal static void Spawn(PlayerAgent? owner, PlayerAgent? thrower, Vector3 start, Vector3 direction, GameObject? heldModel, HammerFlight flight)
     {
         var go = new GameObject("GTFO.EZ.AbsurdWeapons Thrown Mjolnir");
         go.transform.position = start;
@@ -159,6 +197,7 @@ internal sealed class ThrownHammer : MonoBehaviour
         var hammer = go.AddComponent<ThrownHammer>();
         hammer.owner = owner;
         hammer.thrower = thrower;
+        hammer.flight = flight;
         if (owner != null) localThrow = hammer;
         hammer.origin = start;
         hammer.direction = direction.normalized;
@@ -185,7 +224,7 @@ internal sealed class ThrownHammer : MonoBehaviour
             Vector3 next;
             if (!returning)
             {
-                var step = MjolnirThrow.Speed.Value * dt;
+                var step = flight.Speed * dt;
                 next = position + direction * step;
                 travelled += step;
                 if (Physics.Linecast(position, next, out var wall, LayerManager.MASK_WORLD))
@@ -193,14 +232,14 @@ internal sealed class ThrownHammer : MonoBehaviour
                     next = wall.point - direction * 0.2f;
                     returning = true;
                 }
-                else if (travelled >= MjolnirThrow.Reach.Value) returning = true;
+                else if (travelled >= flight.Reach) returning = true;
             }
             else
             {
                 // Home back to the thrower's hand (or where it was thrown from).
                 var hand = thrower != null && thrower.Alive ? thrower.Position + Vector3.up * 1.3f : origin;
                 var toHand = hand - position;
-                var step = MjolnirThrow.ReturnSpeed.Value * dt;
+                var step = flight.ReturnSpeed * dt;
                 if (toHand.magnitude <= Mathf.Max(step, 1f) || age > 6f)
                 {
                     Destroy(gameObject);
@@ -211,7 +250,7 @@ internal sealed class ThrownHammer : MonoBehaviour
 
             if (owner != null) Strike(position, next);
             transform.position = next;
-            transform.Rotate(spinAxis, MjolnirThrow.SpinDegreesPerSecond.Value * dt, Space.World);
+            transform.Rotate(spinAxis, flight.Spin * dt, Space.World);
             glow.Intensity = 3f + Mathf.PerlinNoise(age * 20f, 0f) * 4f;
         }
         catch (Exception e)
