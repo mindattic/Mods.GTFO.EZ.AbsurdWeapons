@@ -255,3 +255,12 @@ _Nothing recorded yet._
 | G.AWPN-T228 | 2026-10-26 | chore | closed | Cut the v18 release: fold in the BladeStretcher leak fix and the event-log toggle announcement, bump VERSION/manifest, rebuild and repackage dist/ | package/CHANGELOG.md |
 | G.AWPN-T229 | 2026-11-01 | chore | closed | Rename repo to Mods.GTFO.EZ.AbsurdWeapons for mod organization (GitHub + folder + refs) | 910f2100b9aece650600a58fa61a21376d91422e |
 | G.AWPN-T230 | 2026-11-01 | chore | closed | Cut v19 release: bump VERSION/manifest, rebuild and repackage dist/ | 1de992a on main; dotnet build 0 warnings/0 errors; dist/GTFO.EZ.AbsurdWeapons-19.0.0.zip built |
+| G.AWPN-T231 | 2026-11-02 | fix | closed | Bughunt sweep, two passes: find and fix real bugs across tracked source (user request 2026-11-02) | — |
+| G.AWPN-T232 | 2026-11-05 | chore | open | Bump BepInExPack_GTFO dependency to 3.2.4 and release v20.0.0 | — |
+| G.AWPN-T233 | 2026-11-05 | docs | open | Audit README(s) for accuracy against current code/config and v20 release | — |
+| G.AWPN-T234 | 2026-11-06 | fix | wont-do | 'Infinite range' weapon effect reported as not working in play | — |
+| G.AWPN-T235 | 2026-11-06 | fix | closed | Remote copies of projectiles/effects use the shooter's values (grenade gravity/bounce/fuse, rocket speed/lifetime, Mjolnir, shrink rate, banner radius/heal) sent in each message, events keyed on the agent not the GTFO-API sender, team-visible toggle/feedback messages | 454b4fd |
+| G.AWPN-T236 | 2026-11-06 | fix | closed | Always register every injected gun/melee/tool datablock (archetype, gear category, offline gear) whatever its Enabled setting, so host and clients always hold the same blocks; Enabled now only hides the weapon from the loadout lists (GearManager.GetAllGearForSlot) instead of skipping its registration | a859ff5 |
+| G.AWPN-T237 | 2026-11-06 | chore | closed | Bump to v21.0.0 and build the dist zip for the v21 release | — |
+| G.AWPN-T238 | 2026-11-06 | chore | closed | Publish v21.0.0 to Thunderstore | 96e133f |
+| G.AWPN-T239 | 2026-11-06 | feature | closed | /publish: bumps all four GTFO.EZ mods in lockstep, builds each dist zip, publishes to Thunderstore in dependency order, commits and pushes | aea0ac0 |
